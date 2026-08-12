@@ -22,6 +22,7 @@ export type CasioMode =
 export interface CalculatorState {
   expression: string;
   result: string;
+  cursorPosition: number;
   memory: number;
   history: HistoryEntry[];
   mode: "light" | "dark";

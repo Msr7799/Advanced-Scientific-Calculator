@@ -20,6 +20,7 @@ const STORAGE_KEY = "advanced-calculator-state";
 const initialState: CalculatorState = {
   expression: "",
   result: "",
+  cursorPosition: 0,
   memory: 0,
   history: [],
   mode: "dark",
@@ -46,6 +47,7 @@ function readStoredState(): CalculatorState | undefined {
       ...initialState,
       expression: String(parsed.expression ?? ""),
       result: String(parsed.result ?? ""),
+      cursorPosition: String(parsed.expression ?? "").length,
       memory: memoryValue,
       mode: parsed.mode === "light" ? "light" : "dark",
       lastAnswer: lastAnswerValue,
@@ -79,6 +81,7 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         ...state,
         expression: String(payload.expression ?? state.expression),
         result: String(payload.result ?? state.result),
+        cursorPosition: String(payload.expression ?? state.expression).length,
         memory: memoryValue,
         mode: payload.mode === "light" ? "light" : state.mode,
         lastAnswer: lastAnswerValue,
@@ -86,16 +89,44 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         angleMode: modeVal,
       };
     }
-    case "SET_EXPRESSION":
-      return { ...state, expression: String(action.payload ?? "") };
+    case "SET_EXPRESSION": {
+      const expression = String(action.payload ?? "");
+      return { ...state, expression, cursorPosition: expression.length };
+    }
     case "SET_RESULT":
       return { ...state, result: String(action.payload ?? "") };
-    case "APPEND_TOKEN":
-      return { ...state, expression: `${state.expression}${String(action.payload ?? "")}` };
+    case "APPEND_TOKEN": {
+      const payload = typeof action.payload === "object" && action.payload !== null
+        ? action.payload as { text?: unknown; cursorBack?: unknown }
+        : { text: action.payload, cursorBack: 0 };
+      const text = String(payload.text ?? "");
+      const cursorBack = Math.max(0, Number(payload.cursorBack) || 0);
+      const cursor = Math.min(state.expression.length, Math.max(0, state.cursorPosition));
+      const expression = `${state.expression.slice(0, cursor)}${text}${state.expression.slice(cursor)}`;
+      return {
+        ...state,
+        expression,
+        result: "",
+        cursorPosition: Math.max(cursor, cursor + text.length - cursorBack),
+      };
+    }
+    case "SET_CURSOR":
+      return {
+        ...state,
+        cursorPosition: Math.min(state.expression.length, Math.max(0, Number(action.payload) || 0)),
+      };
     case "CLEAR":
-      return { ...state, expression: "", result: "" };
-    case "BACKSPACE":
-      return { ...state, expression: state.expression.slice(0, -1) };
+      return { ...state, expression: "", result: "", cursorPosition: 0 };
+    case "BACKSPACE": {
+      const cursor = Math.min(state.expression.length, Math.max(0, state.cursorPosition));
+      if (cursor === 0) return state;
+      return {
+        ...state,
+        expression: `${state.expression.slice(0, cursor - 1)}${state.expression.slice(cursor)}`,
+        result: "",
+        cursorPosition: cursor - 1,
+      };
+    }
     case "EVALUATE": {
       const expression = state.expression.trim();
       const result = String(action.payload ?? state.result);

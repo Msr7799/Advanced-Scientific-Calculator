@@ -508,8 +508,7 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
   const calcState = useCalculatorState();
   const [isError] = useState(false);
 
-  const displayExpr = calcState.expression.replace(/\*/g, "×").replace(/\//g, "÷");
-  const showResult = calcState.result !== "0" && calcState.result !== "";
+  const showResult = calcState.result !== "";
 
   return (
     <motion.div
@@ -556,9 +555,11 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
       {/* Large LCD */}
       <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
         <CasioScreen
-          expression={displayExpr}
+          expression={calcState.expression}
           result={showResult ? calcState.result : ""}
           isError={isError}
+          cursorPosition={calcState.cursorPosition}
+          displaySize="expanded"
           modeTitle="RUN-MAT ● EXPANDED"
         />
       </div>

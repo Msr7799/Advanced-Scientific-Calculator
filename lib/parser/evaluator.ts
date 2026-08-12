@@ -87,7 +87,7 @@ function evaluateAst(node: AstNode, context?: EvaluationContext): number {
       }
     }
     case "FunctionCall": {
-      if (node.name === "∫" || node.name === "integral") {
+      if (node.name === "∫" || node.name === "integral" || node.name === "integrate") {
         if (node.args.length < 3) {
           throw new Error("Integral requires 3 arguments: expression, lower, upper");
         }
@@ -105,7 +105,7 @@ function evaluateAst(node: AstNode, context?: EvaluationContext): number {
         }
         return (h / 3) * sum;
       }
-      if (node.name === "Σ" || node.name === "sigma") {
+      if (node.name === "Σ" || node.name === "sigma" || node.name === "sum") {
         if (node.args.length < 3) {
           throw new Error("Sigma requires 3 arguments: expression, start, end");
         }
@@ -116,6 +116,16 @@ function evaluateAst(node: AstNode, context?: EvaluationContext): number {
           sum += evaluateAst(node.args[0], { ...context, x: xVal });
         }
         return sum;
+      }
+      if (node.name === "derivative") {
+        if (node.args.length < 2) {
+          throw new Error("Derivative requires 2 arguments: expression, x value");
+        }
+        const point = evaluateAst(node.args[1], context);
+        const h = 1e-5 * Math.max(1, Math.abs(point));
+        const upper = evaluateAst(node.args[0], { ...context, x: point + h });
+        const lower = evaluateAst(node.args[0], { ...context, x: point - h });
+        return (upper - lower) / (2 * h);
       }
       if (["sin", "cos", "tan"].includes(node.name)) {
         if (node.args.length < 1) throw new Error(`${node.name} requires 1 argument`);

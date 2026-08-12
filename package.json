@@ -11,6 +11,7 @@
   "dependencies": {
     "framer-motion": "^12.42.2",
     "jstat": "^1.9.6",
+    "katex": "^0.18.4",
     "lucide-react": "^1.31.0",
     "mathjs": "^15.2.0",
     "mathlive": "^0.110.0",

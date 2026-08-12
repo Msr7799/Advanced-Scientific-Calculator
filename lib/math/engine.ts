@@ -52,6 +52,7 @@ function makeScope(angleMode: string, extra: Record<string, unknown> = {}) {
 
     // ── misc ──────────────────────────────────────────────────────────────
     abs:  (x: number) => Math.abs(x),
+    frac: (numerator: number, denominator: number) => numerator / denominator,
     ceil: (x: number) => Math.ceil(x),
     floor:(x: number) => Math.floor(x),
     round:(x: number) => Math.round(x),
@@ -126,7 +127,7 @@ export function calculate(expression: string, context?: EvaluationContext): Eval
   } catch {
     try {
       const fallback = evaluateAstExpression(cleaned, context);
-      return { expression, result: fallback.toString() };
+      return { expression, result: parseFloat(fallback.toPrecision(10)).toString() };
     } catch (e2: unknown) {
       throw new Error(e2 instanceof Error ? e2.message : "Math ERROR");
     }

@@ -28,6 +28,9 @@ const identifiers = [
   "ln",
   "log",
   "sqrt",
+  "cbrt",
+  "nthRoot",
+  "frac",
   "abs",
   "exp",
   "pow",
@@ -38,6 +41,11 @@ const identifiers = [
   "Infinity",
   "mod",
   "pct",
+  "integral",
+  "integrate",
+  "sum",
+  "sigma",
+  "derivative",
 ];
 
 function isDigit(char: string) {

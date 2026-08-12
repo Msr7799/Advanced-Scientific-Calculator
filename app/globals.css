@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 :root {
   color-scheme: dark;
@@ -81,6 +82,25 @@ html, body {
   border-radius: inherit;
   pointer-events: none;
   z-index: 11;
+}
+
+.natural-math {
+  display: inline-block;
+  min-width: 2px;
+  max-width: 100%;
+  color: #dfffc7;
+  font-family: KaTeX_Main, "Times New Roman", serif;
+  white-space: nowrap;
+}
+
+.natural-math .katex {
+  font-size: 1em;
+  line-height: 1.35;
+}
+
+.natural-result {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(200, 230, 255, 0.4);
 }
 
 /* ══════════════════════════════════════════════════

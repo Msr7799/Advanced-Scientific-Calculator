@@ -32,10 +32,56 @@ function toSimpleFraction(decimal: number): string | null {
     const numerator = Math.round(decimal * denominator);
     if (Math.abs(numerator / denominator - decimal) < 1e-9) {
       const divisor = greatestCommonDivisor(Math.abs(numerator), denominator);
-      return `${numerator / divisor}/${denominator / divisor}`;
+      return `frac(${numerator / divisor},${denominator / divisor})`;
     }
   }
   return null;
+}
+
+function findClosingParenthesis(expression: string, openingIndex: number): number {
+  let depth = 0;
+  for (let index = openingIndex; index < expression.length; index++) {
+    if (expression[index] === "(") depth++;
+    if (expression[index] === ")") depth--;
+    if (depth === 0) return index;
+  }
+  return expression.length;
+}
+
+export function getVerticalCursor(expression: string, cursor: number, direction: "UP" | "DOWN"): number {
+  const openings: number[] = [];
+  for (let index = 0; index < cursor; index++) {
+    if (expression[index] === "(") openings.push(index);
+    if (expression[index] === ")") openings.pop();
+  }
+
+  const opening = openings.at(-1);
+  if (opening === undefined) return direction === "UP" ? 0 : expression.length;
+
+  const name = expression.slice(0, opening).match(/([A-Za-z][A-Za-z0-9]*)$/)?.[1] ?? "";
+  const closing = findClosingParenthesis(expression, opening);
+  const commas: number[] = [];
+  let depth = 0;
+  for (let index = opening + 1; index < closing; index++) {
+    if (expression[index] === "(") depth++;
+    if (expression[index] === ")") depth--;
+    if (expression[index] === "," && depth === 0) commas.push(index);
+  }
+  if (commas.length === 0) return direction === "UP" ? opening + 1 : closing;
+
+  const starts = [opening + 1, ...commas.map((comma) => comma + 1)];
+  const ends = [...commas, closing];
+  const currentArgument = ends.findIndex((end) => cursor <= end);
+  const current = currentArgument === -1 ? ends.length - 1 : currentArgument;
+  let target = direction === "UP" ? current - 1 : current + 1;
+
+  if (name === "nthRoot") {
+    target = direction === "UP" ? current + 1 : current - 1;
+  }
+  if (target < 0 || target >= starts.length) return cursor;
+
+  const offset = Math.max(0, cursor - starts[current]);
+  return Math.min(ends[target], starts[target] + offset);
 }
 
 const keyRows: CasioKeyDef[][] = [
@@ -433,6 +479,20 @@ export default function CalculatorShell() {
     }
   }, [calcState.expression, dispatch]);
 
+  const insertToken = useCallback((text: string, cursorBack = 0) => {
+    dispatch({ type: "APPEND_TOKEN", payload: { text, cursorBack } });
+  }, [dispatch]);
+
+  const moveCursor = useCallback((direction: "UP" | "DOWN" | "LEFT" | "RIGHT") => {
+    const current = calcState.cursorPosition;
+    const next = direction === "LEFT"
+      ? current - 1
+      : direction === "RIGHT"
+      ? current + 1
+      : getVerticalCursor(calcState.expression, current, direction);
+    dispatch({ type: "SET_CURSOR", payload: next });
+  }, [calcState.cursorPosition, calcState.expression, dispatch]);
+
   // ── Button click handler ────────────────────────────────────────────────────
   const handleClick = useCallback((action: string) => {
     setIsError(false);
@@ -466,8 +526,8 @@ export default function CalculatorShell() {
     }
 
     // ── Append token helpers ──────────────────────────────────────────────────
-    const append = (token: string) => {
-      dispatch({ type: "APPEND_TOKEN", payload: token });
+    const append = (token: string, cursorBack = 0) => {
+      insertToken(token, cursorBack);
     };
 
     // ── Number / simple operators ─────────────────────────────────────────────
@@ -483,32 +543,33 @@ export default function CalculatorShell() {
         append(wasShift ? "^3" : "^2");
         break;
       case "^":
-        append(wasShift ? "nthRoot(" : "^");
+        if (wasShift) append("nthRoot(,)", 2);
+        else append("^()", 1);
         break;
       case "sqrt":
-        append(wasShift ? "cbrt(" : "sqrt(");
+        append(wasShift ? "cbrt()" : "sqrt()", 1);
         break;
       case "nthroot":
-        append("nthRoot(");
+        append("nthRoot(,)", 2);
         break;
 
       // ── Logarithms ─────────────────────────────────────────────────────────
       case "log":
-        append(wasShift ? "10^" : "log(");
+        append(wasShift ? "10^()" : "log()", 1);
         break;
       case "ln":
-        append(wasShift ? "e^" : "ln(");
+        append(wasShift ? "e^()" : "ln()", 1);
         break;
 
       // ── Trigonometry (SHIFT = inverse) ────────────────────────────────────
       case "sin":
-        append(wasShift ? "asin(" : "sin(");
+        append(wasShift ? "asin()" : "sin()", 1);
         break;
       case "cos":
-        append(wasShift ? "acos(" : "cos(");
+        append(wasShift ? "acos()" : "cos()", 1);
         break;
       case "tan":
-        append(wasShift ? "atan(" : "tan(");
+        append(wasShift ? "atan()" : "tan()", 1);
         break;
 
       // ── Variable / constants ───────────────────────────────────────────────
@@ -521,8 +582,7 @@ export default function CalculatorShell() {
 
       // ── Fraction / S↔D ────────────────────────────────────────────────────
       case "frac":
-        // Inserts fraction template — show "a/b"
-        append("(");
+        append("frac(,)", 2);
         break;
       case "s2d":
         // Convert last result between fraction and decimal (best-effort)
@@ -556,10 +616,11 @@ export default function CalculatorShell() {
 
       // ── Calculus ──────────────────────────────────────────────────────────
       case "integral":
-        append(wasShift ? "derivative(" : "integrate(");
+        if (wasShift) append("derivative(,)", 2);
+        else append("integral(,,)", 3);
         break;
       case "sigma":
-        append("sum(");
+        append("sum(,,)", 3);
         break;
 
       // ── Arrow / comma ─────────────────────────────────────────────────────
@@ -583,43 +644,43 @@ export default function CalculatorShell() {
       case "f1":
         if (fKeyMenu === "main") setFKeyMenu("calc");
         else if (fKeyMenu === "more") store.cycleAngleMode();
-        else if (fKeyMenu === "calc") append("integrate(");
+        else if (fKeyMenu === "calc") append("integral(,,)", 3);
         else if (fKeyMenu === "algb") void handleAlgebra("simplify");
         else if (fKeyMenu === "optn") append("[");
-        else if (fKeyMenu === "optn2") append("convert(");
+        else if (fKeyMenu === "optn2") append("convert()", 1);
         else if (fKeyMenu === "vars") append("ans");
         break;
       case "f2":
         if (fKeyMenu === "main") setFKeyMenu("algb");
         else if (fKeyMenu === "more") append(String(store.recallMemory()));
-        else if (fKeyMenu === "calc") append("derivative(");
+        else if (fKeyMenu === "calc") append("derivative(,)", 2);
         else if (fKeyMenu === "algb") void handleAlgebra("factor");
         else if (fKeyMenu === "optn") setMode("MATRIX");
-        else if (fKeyMenu === "optn2") append("sinh(");
+        else if (fKeyMenu === "optn2") append("sinh()", 1);
         else if (fKeyMenu === "vars") append("memory");
         break;
       case "f3":
         if (fKeyMenu === "main") setFKeyMenu("optn");
         else if (fKeyMenu === "more") store.storeMemory(Number(calcState.result) || 0);
-        else if (fKeyMenu === "calc") append("derivative(derivative(");
+        else if (fKeyMenu === "calc") append("derivative(derivative(,),)", 4);
         else if (fKeyMenu === "algb") void handleAlgebra("expand");
         else if (fKeyMenu === "optn") append("i");
-        else if (fKeyMenu === "optn2") append("nCr(");
+        else if (fKeyMenu === "optn2") append("nCr(,)", 2);
         else if (fKeyMenu === "vars") append("x");
         break;
       case "f4":
         if (fKeyMenu === "main") setMode("MENU");
         else if (fKeyMenu === "more") store.addMemory(Number(calcState.result) || 0);
-        else if (fKeyMenu === "calc") append("solve(");
+        else if (fKeyMenu === "calc") append("solve()", 1);
         else if (fKeyMenu === "algb") void handleAlgebra("solve");
         else if (fKeyMenu === "optn") setFKeyMenu("calc");
-        else if (fKeyMenu === "optn2") append("abs(");
+        else if (fKeyMenu === "optn2") append("abs()", 1);
         else if (fKeyMenu === "vars") append("y");
         break;
       case "f5":
         if (fKeyMenu === "main") setFKeyMenu("vars");
         else if (fKeyMenu === "more") store.subtractMemory(Number(calcState.result) || 0);
-        else if (fKeyMenu === "calc") append("sum(");
+        else if (fKeyMenu === "calc") append("sum(,,)", 3);
         else if (fKeyMenu === "algb") append("x");
         else if (fKeyMenu === "optn") setMode("STATISTICS");
         else if (fKeyMenu === "optn2") store.cycleAngleMode();
@@ -650,7 +711,7 @@ export default function CalculatorShell() {
     }
   }, [dispatch, handleEvaluate, setMode, store, calcState.result, calcState.expression,
       toggleShift, toggleAlpha, clearModifiers, shiftActive, currentMode,
-      fKeyMenu, setFKeyMenu, handleAlgebra]);
+      fKeyMenu, setFKeyMenu, handleAlgebra, insertToken]);
 
   // ── Keyboard handler ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -672,27 +733,35 @@ export default function CalculatorShell() {
           break;
         case "DIGIT":
         case "OPERATOR":
-          dispatch({ type: "APPEND_TOKEN", payload: action.value });
+          insertToken(action.value);
           setIsError(false);
           break;
-        case "FUNCTION":
-          dispatch({ type: "APPEND_TOKEN", payload: action.value });
+        case "FUNCTION": {
+          const template = action.value.endsWith("(") ? `${action.value})` : action.value;
+          insertToken(template, action.value.endsWith("(") ? 1 : 0);
           setIsError(false);
           break;
+        }
         case "FKEY":
           handleClick(action.value.toLowerCase());
           break;
         case "DPAD":
-          // Could be used for cursor navigation in the future
+          if (action.value !== "CENTER") moveCursor(action.value);
           break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dispatch, handleEvaluate, currentMode, setMode, handleClick]);
+  }, [dispatch, handleEvaluate, currentMode, setMode, handleClick, insertToken, moveCursor]);
 
   const handleNav = useCallback((dir: string) => {
-    // Dispatch real keyboard events so CasioMenuScreen + other handlers receive them
+    if (currentMode === "RUN_MAT") {
+      if (dir === "CENTER") handleEvaluate();
+      else if (["UP", "DOWN", "LEFT", "RIGHT"].includes(dir)) {
+        moveCursor(dir as "UP" | "DOWN" | "LEFT" | "RIGHT");
+      }
+      return;
+    }
     const keyMap: Record<string, string> = {
       UP: "ArrowUp",
       DOWN: "ArrowDown",
@@ -704,11 +773,10 @@ export default function CalculatorShell() {
     if (key) {
       window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
     }
-  }, []);
+  }, [currentMode, handleEvaluate, moveCursor]);
 
   // ── Display ──────────────────────────────────────────────────────────────────
-  const displayExpr = calcState.expression.replace(/\*/g, "×").replace(/\//g, "÷");
-  const showResult = calcState.result !== "0" && calcState.result !== "";
+  const showResult = calcState.result !== "";
   const isMenuMode = currentMode === "MENU";
 
   return (
@@ -766,9 +834,10 @@ export default function CalculatorShell() {
                 <CasioMenuScreen onSelect={(mode) => setMode(mode)} />
               ) : (
                 <CasioScreen
-                  expression={displayExpr}
+                  expression={calcState.expression}
                   result={showResult ? calcState.result : ""}
                   isError={isError}
+                  cursorPosition={calcState.cursorPosition}
                   modeTitle="RUN-MAT"
                   fKeyLabels={currentFKeyLabels}
                   onFKey={handleClick}
