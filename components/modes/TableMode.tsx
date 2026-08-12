@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { calculate } from "@/lib/math/engine";
+import { useCasioStore } from "@/store/calculatorStore";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
 
 interface TableRow {
   x: number;
@@ -9,6 +11,11 @@ interface TableRow {
 }
 
 export default function TableMode() {
+  const setMode = useCasioStore((state) => state.setMode);
+  const expressionRef = useRef<HTMLInputElement>(null);
+  const startRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLInputElement>(null);
+  const stepRef = useRef<HTMLInputElement>(null);
   const [expression, setExpression] = useState("x^2");
   const [xStart, setXStart] = useState("-5");
   const [xEnd, setXEnd] = useState("5");
@@ -40,8 +47,18 @@ export default function TableMode() {
     return { rows: out, error: "" };
   }, [expression, xStart, xEnd, xStep]);
 
+  useCasioFKeys([
+    () => expressionRef.current?.focus(),
+    () => startRef.current?.focus(),
+    () => endRef.current?.focus(),
+    () => stepRef.current?.focus(),
+    () => setMode("GRAPH"),
+    () => setMode("GRAPH"),
+  ]);
+
   return (
-    <div className="mode-responsive-split flex h-full overflow-hidden" style={{ background: "#0a1220" }}>
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: "#0a1220" }}>
+     <div className="mode-responsive-split flex min-h-0 flex-1 overflow-hidden">
       {/* Controls */}
       <div
         className="w-56 shrink-0 flex flex-col gap-3 p-4 border-r overflow-y-auto panel-scroll"
@@ -52,6 +69,7 @@ export default function TableMode() {
         <label className="flex flex-col gap-1">
           <span className="text-[10px] text-[#406080]">f(x) =</span>
           <input
+            ref={expressionRef}
             value={expression}
             onChange={(e) => setExpression(e.target.value)}
             className="rounded px-2 py-1.5 text-[12px] font-mono text-white"
@@ -61,13 +79,14 @@ export default function TableMode() {
         </label>
 
         {[
-          { label: "X Start", value: xStart, set: setXStart },
-          { label: "X End",   value: xEnd,   set: setXEnd   },
-          { label: "X Step",  value: xStep,  set: setXStep  },
-        ].map(({ label, value, set }) => (
+          { label: "X Start", value: xStart, set: setXStart, ref: startRef },
+          { label: "X End",   value: xEnd,   set: setXEnd, ref: endRef },
+          { label: "X Step",  value: xStep,  set: setXStep, ref: stepRef },
+        ].map(({ label, value, set, ref }) => (
           <label key={label} className="flex flex-col gap-1">
             <span className="text-[10px] text-[#406080]">{label}</span>
             <input
+              ref={ref}
               value={value}
               onChange={(e) => set(e.target.value)}
               className="rounded px-2 py-1.5 text-[12px] font-mono text-white"
@@ -87,7 +106,6 @@ export default function TableMode() {
           Example: <span className="text-[#3a5878]">sin(x)</span>, <span className="text-[#3a5878]">x^2+1</span>
         </div>
       </div>
-
       {/* Table */}
       <div className="flex-1 overflow-auto panel-scroll p-2">
         <table className="w-full text-[12px] font-mono border-collapse">
@@ -125,6 +143,15 @@ export default function TableMode() {
             Enter a valid expression and range to generate a table.
           </div>
         )}
+      </div>
+     </div>
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+        <button type="button" onClick={() => expressionRef.current?.focus()} className="mode-softkey">FORM</button>
+        <button type="button" onClick={() => startRef.current?.focus()} className="mode-softkey">START</button>
+        <button type="button" onClick={() => endRef.current?.focus()} className="mode-softkey">END</button>
+        <button type="button" onClick={() => stepRef.current?.focus()} className="mode-softkey">STEP</button>
+        <button type="button" onClick={() => setMode("GRAPH")} className="mode-softkey">GRAPH</button>
+        <button type="button" onClick={() => setMode("GRAPH")} className="mode-softkey mode-softkey-active">G-PLOT</button>
       </div>
     </div>
   );

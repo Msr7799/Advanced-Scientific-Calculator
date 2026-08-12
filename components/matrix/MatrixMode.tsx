@@ -2,6 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { addMatrices, subtractMatrices, multiplyMatrices, transposeMatrix, determinant, inverseMatrix, rankMatrix } from "@/lib/matrix/matrix";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
+
+type MatrixOperation = "add" | "subtract" | "multiply" | "transpose" | "determinant" | "inverse" | "rank";
+const MATRIX_SOFTKEYS: Array<{ id: MatrixOperation; label: string }> = [
+  { id: "add", label: "ADD" }, { id: "subtract", label: "SUB" }, { id: "multiply", label: "MULT" },
+  { id: "transpose", label: "TRANS" }, { id: "determinant", label: "DET" }, { id: "inverse", label: "INV" },
+];
 
 function parseMatrix(value: string) {
   const rows = value
@@ -29,7 +36,7 @@ function renderMatrix(matrix: number[][]) {
 export default function MatrixMode() {
   const [matrixA, setMatrixA] = useState("1 2 3\n4 5 6\n7 8 9");
   const [matrixB, setMatrixB] = useState("1 0 2\n0 1 3\n4 5 6");
-  const [operation, setOperation] = useState("add");
+  const [operation, setOperation] = useState<MatrixOperation>("add");
   const [result, setResult] = useState<number[][] | number | null>(null);
   const [error, setError] = useState("");
 
@@ -46,13 +53,13 @@ export default function MatrixMode() {
     }
   }, [operation]);
 
-  const compute = () => {
+  const compute = (requestedOperation: MatrixOperation = operation) => {
     try {
       setError("");
       const a = parseMatrix(matrixA);
       const b = parseMatrix(matrixB);
       let output: number[][] | number;
-      switch (operation) {
+      switch (requestedOperation) {
         case "add": output = addMatrices(a, b); break;
         case "subtract": output = subtractMatrices(a, b); break;
         case "multiply": output = multiplyMatrices(a, b); break;
@@ -69,8 +76,16 @@ export default function MatrixMode() {
     }
   };
 
+  const runOperation = (next: MatrixOperation) => {
+    setOperation(next);
+    compute(next);
+  };
+
+  useCasioFKeys(MATRIX_SOFTKEYS.map((item) => () => runOperation(item.id)));
+
   return (
-    <div className="mode-responsive-grid grid h-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="flex h-full flex-col overflow-hidden">
+     <div className="mode-responsive-grid grid min-h-0 flex-1 gap-6 overflow-y-auto lg:grid-cols-[1.1fr_0.9fr]">
       <div className="rounded-3xl border border-slate-800/80 bg-[#09110d] p-6 shadow-[inset_0_0_30px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -112,7 +127,7 @@ export default function MatrixMode() {
             <button
               key={button.id}
               type="button"
-              onClick={() => setOperation(button.id)}
+              onClick={() => setOperation(button.id as MatrixOperation)}
               className={`rounded-3xl px-4 py-3 text-sm font-semibold transition ${operation === button.id ? "bg-emerald-500 text-slate-950" : "bg-slate-900/90 text-slate-200 hover:bg-slate-800"}`}
             >
               {button.label}
@@ -123,7 +138,7 @@ export default function MatrixMode() {
         <div className="mt-6 flex items-center gap-3">
           <button
             type="button"
-            onClick={compute}
+            onClick={() => compute()}
             className="rounded-3xl bg-gradient-to-r from-sky-500 to-cyan-400 px-6 py-3 text-sm font-semibold text-slate-950 shadow-[0_10px_30px_rgba(56,189,248,0.22)] transition hover:opacity-95"
           >
             Compute
@@ -158,6 +173,10 @@ export default function MatrixMode() {
 4 5 6
 7 8 9</pre>
         </div>
+      </div>
+     </div>
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+        {MATRIX_SOFTKEYS.map((item) => <button key={item.id} type="button" onClick={() => runOperation(item.id)} className={`mode-softkey ${operation === item.id ? "mode-softkey-active" : ""}`}>{item.label}</button>)}
       </div>
     </div>
   );

@@ -3,17 +3,18 @@
 import Image from "next/image";
 import { useCasioStore } from "@/store/calculatorStore";
 import type { CasioMode } from "@/types/calculator";
+import { dispatchCasioFKey } from "@/lib/keyboard/useCasioFKeys";
 
 type WorkspaceMode = Exclude<CasioMode, "RUN_MAT" | "MENU">;
 
 const MODE_DETAILS: Record<WorkspaceMode, { label: string; color: string; lines: string[]; softkeys: string[] }> = {
   GRAPH: { label: "GRAPH", color: "#ff9944", lines: ["Y= function editor", "Trace / Zoom / V-Window"], softkeys: ["TRACE", "ZOOM", "V-WIN", "SKETCH", "G-SOLV", "G-T"] },
-  TABLE: { label: "TABLE", color: "#55ccff", lines: ["Function value table", "Set Start / End / Step"], softkeys: ["FORM", "RANG", "EDIT", "ROW", "G-CON", "G-PLOT"] },
+  TABLE: { label: "TABLE", color: "#55ccff", lines: ["Function value table", "Set Start / End / Step"], softkeys: ["FORM", "START", "END", "STEP", "GRAPH", "G-PLOT"] },
   EQUATION: { label: "EQUATION", color: "#ff66aa", lines: ["Solver / Polynomial", "2x2 and 3x3 systems"], softkeys: ["SIMUL", "POLY", "SOLVER", "CLEAR", "-", "SOLVE"] },
   MATRIX: { label: "MATRIX", color: "#cc88ff", lines: ["Matrix A / Matrix B", "Arithmetic and transforms"], softkeys: ["ADD", "SUB", "MULT", "TRANS", "DET", "INV"] },
   VECTOR: { label: "VECTOR", color: "#ffcc44", lines: ["Vct A / Vct B", "DotP / CrossP / Norm"], softkeys: ["DOT", "CROSS", "NORM", "UNIT", "ANGLE", "ADD"] },
   STATISTICS: { label: "STAT", color: "#44cc88", lines: ["1-variable statistics", "Regression and plots"], softkeys: ["1-VAR", "REGR", "CALC", "GRAPH", "SET", "DRAW"] },
-  PYTHON: { label: "PYTHON", color: "#44ddaa", lines: ["CPython / Pyodide", "Editor and output shell"], softkeys: ["NEW", "SAVE", "SHELL", "CHAR", "STOP", "RUN"] },
+  PYTHON: { label: "PYTHON", color: "#44ddaa", lines: ["CPython / Pyodide", "Editor and output shell"], softkeys: ["NEW", "SAVE", "SHELL", "CHAR", "DELETE", "RUN"] },
 };
 
 export default function CasioModeScreen({ mode }: { mode: WorkspaceMode }) {
@@ -55,9 +56,9 @@ export default function CasioModeScreen({ mode }: { mode: WorkspaceMode }) {
       </div>
       <div className="grid shrink-0 grid-cols-6 border-t border-white/5 bg-[#081224]/40">
         {details.softkeys.map((label, index) => (
-          <div key={index} className="truncate border-r border-white/5 px-0.5 py-1 text-center text-[7px] font-bold last:border-r-0" style={{ color: details.color }}>
+          <button type="button" key={index} onClick={() => dispatchCasioFKey(`F${index + 1}`)} className="truncate border-r border-white/5 px-0.5 py-1 text-center text-[7px] font-bold transition-colors hover:bg-white/10 active:bg-white/20 last:border-r-0" style={{ color: details.color }} aria-label={`F${index + 1}: ${label}`}>
             {label}
-          </div>
+          </button>
         ))}
       </div>
     </div>

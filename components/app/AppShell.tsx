@@ -16,6 +16,8 @@ import EquationSolver from "@/components/equationlib/equation/EquationSolver";
 import TableMode from "@/components/modes/TableMode";
 import PythonMode from "@/components/modes/PythonMode";
 import type { CasioMode } from "@/types/calculator";
+import { dispatchRunMatFKey } from "@/lib/keyboard/useCasioFKeys";
+import { RUN_MAT_FKEY_LABELS } from "@/lib/keyboard/runMatFKeys";
 
 // ─── Mode meta ────────────────────────────────────────────────────────────────
 const MODE_META: Record<CasioMode, { label: string; color: string }> = {
@@ -144,7 +146,7 @@ function ModePanel({ mode }: { mode: CasioMode }) {
     <AnimatePresence mode="wait">
       <motion.div
         key={mode}
-        className="flex-1 overflow-hidden"
+        className="mode-panel h-full w-full min-h-0 min-w-0 overflow-hidden"
         initial={{ opacity: 0, x: 16 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -16 }}
@@ -531,6 +533,7 @@ function ExpandedDisplay({ mode, onClose, onFullscreen }: {
   onFullscreen: () => void;
 }) {
   const calcState = useCalculatorState();
+  const runMatFKeyMenu = useCasioStore((state) => state.runMatFKeyMenu);
   const [panelWidth, setPanelWidth] = useState(() => {
     if (typeof window === "undefined") return 520;
     const stored = Number(window.localStorage.getItem("expanded-display-width"));
@@ -644,7 +647,7 @@ function ExpandedDisplay({ mode, onClose, onFullscreen }: {
       </div>
 
       {/* Large LCD */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {isCalculatorDisplay ? (
           <CasioScreen
             expression={calcState.expression}
@@ -653,6 +656,8 @@ function ExpandedDisplay({ mode, onClose, onFullscreen }: {
             cursorPosition={calcState.cursorPosition}
             displaySize="expanded"
             modeTitle="RUN-MAT / EXPANDED"
+            onFKey={dispatchRunMatFKey}
+            fKeyLabels={RUN_MAT_FKEY_LABELS[runMatFKeyMenu]}
           />
         ) : (
           <ModePanel mode={mode} />
@@ -712,7 +717,7 @@ function AppShellContent() {
     >
       <div className="flex flex-1 overflow-hidden h-full">
         <AnimatePresence>
-          {showExpandedDisplay && (
+          {showExpandedDisplay && !fullscreenMode && (
             <ExpandedDisplay
               mode={currentMode}
               onClose={closeExpandedDisplay}

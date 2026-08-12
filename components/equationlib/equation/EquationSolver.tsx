@@ -5,6 +5,7 @@ import { Calculator, RotateCcw } from "lucide-react";
 import nerdamer from "nerdamer";
 import "nerdamer/Algebra";
 import "nerdamer/Solve";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
 
 type EquationType = "solver" | "polynomial" | "system2" | "system3";
 
@@ -67,6 +68,15 @@ export default function EquationSolver() {
       setError(reason instanceof Error ? reason.message : "Equation ERROR");
     }
   };
+
+  useCasioFKeys([
+    () => selectMode(MODES[2]),
+    () => selectMode(MODES[1]),
+    () => selectMode(MODES[0]),
+    () => setInput(""),
+    undefined,
+    solve,
+  ]);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-[#07101c] text-[#c8d8e8]">

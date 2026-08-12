@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import jStat from "jstat";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
+import { useCasioStore } from "@/store/calculatorStore";
 
 // ─── Parsing helpers ─────────────────────────────────────────────────────────
 function parseSeries(value: string): number[] {
@@ -122,6 +124,7 @@ function ScatterPlot({ xs, ys, regression }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function StatisticsMode() {
+  const setMode = useCasioStore((state) => state.setMode);
   const [dataset, setDataset] = useState("12 7 9 15 6 10 8 11 14 5");
   const [xs, setXs] = useState("1 2 3 4 5 6");
   const [ys, setYs] = useState("2.1 3.9 6.2 8.0 9.8 11.9");
@@ -158,8 +161,18 @@ export default function StatisticsMode() {
 
   const bg = "#0a1220", border = "#1a2840", card = "#080e18";
 
+  useCasioFKeys([
+    () => setTab("1var"),
+    () => setTab("regression"),
+    () => setTab("1var"),
+    () => setMode("GRAPH"),
+    () => setTab("1var"),
+    () => setMode("GRAPH"),
+  ]);
+
   return (
-    <div className="mode-responsive-split flex h-full overflow-hidden" style={{ background: bg }}>
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: bg }}>
+     <div className="mode-responsive-split flex min-h-0 flex-1 overflow-hidden">
       {/* ── Left: inputs + tabs ─────────────────────── */}
       <div className="w-56 shrink-0 flex flex-col border-r overflow-hidden" style={{ borderColor: border, background: card }}>
         {/* Tabs */}
@@ -315,6 +328,15 @@ export default function StatisticsMode() {
             </div>
           </div>
         )}
+      </div>
+     </div>
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+        <button type="button" onClick={() => setTab("1var")} className={`mode-softkey ${tab === "1var" ? "mode-softkey-active" : ""}`}>1-VAR</button>
+        <button type="button" onClick={() => setTab("regression")} className={`mode-softkey ${tab === "regression" ? "mode-softkey-active" : ""}`}>REGR</button>
+        <button type="button" onClick={() => setTab("1var")} className="mode-softkey">CALC</button>
+        <button type="button" onClick={() => setMode("GRAPH")} className="mode-softkey">GRAPH</button>
+        <button type="button" onClick={() => setTab("1var")} className="mode-softkey">SET</button>
+        <button type="button" onClick={() => setMode("GRAPH")} className="mode-softkey">DRAW</button>
       </div>
     </div>
   );

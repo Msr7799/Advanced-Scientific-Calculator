@@ -359,7 +359,8 @@ export default function CalculatorShell() {
     if (!value && calcState.isError) dispatch({ type: "SET_RESULT", payload: "" });
   }, [calcState.isError, dispatch]);
   const [poweredOff, setPoweredOff] = useState(false);
-  const [fKeyMenu, setFKeyMenu] = useState<"main" | "more" | "calc" | "algb" | "optn" | "optn2" | "vars">("main");
+  const fKeyMenu = useCasioStore((state) => state.runMatFKeyMenu);
+  const setFKeyMenu = useCasioStore((state) => state.setRunMatFKeyMenu);
 
   const currentFKeyLabels = useMemo(() => {
     switch (fKeyMenu) {
@@ -783,6 +784,12 @@ export default function CalculatorShell() {
       fKeyMenu, setFKeyMenu, handleAlgebra, insertToken, setIsError]);
 
   // ── Keyboard handler ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onMirroredFKey = (event: Event) => handleClick((event as CustomEvent<string>).detail);
+    window.addEventListener("casio-run-mat-fkey", onMirroredFKey);
+    return () => window.removeEventListener("casio-run-mat-fkey", onMirroredFKey);
+  }, [handleClick]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;

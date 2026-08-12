@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FilePlus2, Play, RotateCcw, Save, Square, Trash2 } from "lucide-react";
 import Image from "next/image";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
 
 interface PythonFile { name: string; code: string }
 
@@ -123,6 +124,15 @@ export default function PythonMode() {
     };
     worker.postMessage({ type: "run", source: activeFile.code, filename: activeFile.name, id });
   };
+
+  useCasioFKeys([
+    createFile,
+    saveFiles,
+    () => setOutput([]),
+    () => updateCode(`${activeFile.code}\nprint()`),
+    deleteFile,
+    status === "loading" || status === "running" ? stopPython : runPython,
+  ]);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-[#07101a] text-[#c8d8e8]">

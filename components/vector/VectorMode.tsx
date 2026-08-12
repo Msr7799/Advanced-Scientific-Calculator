@@ -10,6 +10,7 @@ import {
   normalize,
   type Vector,
 } from "@/lib/vector/vector";
+import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
 
 type VectorName = "A" | "B";
 type Operation = "dot" | "cross" | "norm" | "unit" | "angle" | "add";
@@ -66,6 +67,8 @@ export default function VectorMode() {
       return { ...current, [selected]: Array.from({ length: dimension }, (_, index) => active[index] ?? 0) };
     });
   };
+
+  useCasioFKeys(OPERATIONS.map((item) => () => setOperation(item.id)));
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-[#07101c] text-[#c8d8e8]">
