@@ -6,9 +6,9 @@ import { useCalculatorDispatch, useCalculatorState } from "@/lib/state/calculato
 import { useCasioStore } from "@/store/calculatorStore";
 import { calculate } from "@/lib/math/engine";
 import { casExpand, casFactor, casSimplify, casSolve } from "@/lib/cas/casEngine";
-import { useAppState } from "@/lib/state/appState";
 import CasioScreen from "@/components/display/CasioScreen";
 import CasioMenuScreen from "@/components/display/CasioMenuScreen";
+import CasioModeScreen from "@/components/display/CasioModeScreen";
 import type { CasioKeyDef } from "@/types/calculator";
 import { mapKeyboardEvent, shouldPreventDefault } from "@/lib/keyboard/casioKeyboard";
 
@@ -308,8 +308,14 @@ function DPad({ onNav }: { onNav: (dir: string) => void }) {
         aria-label="Right"
       >▶</button>
 
-      {/* Center */}
-      <div className="dpad-center absolute w-7 h-7 rounded-full" />
+      {/* Center / EXE */}
+      <button
+        type="button"
+        className="dpad-center absolute z-10 h-7 w-7 rounded-full"
+        onClick={() => onNav("CENTER")}
+        aria-label="Confirm"
+        title="Confirm / EXE"
+      />
     </div>
   );
 }
@@ -348,8 +354,11 @@ function FKeyBar({ onFKey }: { onFKey: (key: string) => void }) {
 export default function CalculatorShell() {
   const calcState = useCalculatorState();
   const dispatch = useCalculatorDispatch();
-  const appState = useAppState();
-  const [isError, setIsError] = useState(false);
+  const isError = calcState.isError;
+  const setIsError = useCallback((value: boolean) => {
+    if (!value && calcState.isError) dispatch({ type: "SET_RESULT", payload: "" });
+  }, [calcState.isError, dispatch]);
+  const [poweredOff, setPoweredOff] = useState(false);
   const [fKeyMenu, setFKeyMenu] = useState<"main" | "more" | "calc" | "algb" | "optn" | "optn2" | "vars">("main");
 
   const currentFKeyLabels = useMemo(() => {
@@ -430,36 +439,34 @@ export default function CalculatorShell() {
   // ── Evaluate ────────────────────────────────────────────────────────────────
   const evalContext = useMemo(() => {
     const ctx: Record<string, unknown> = {
-      ans: calcState.lastAnswer,
+      ans: store.lastAnswer,
+      memory: store.memory,
       angleMode: angleMode,
     };
-    if (appState?.variables) {
-      for (const v of appState.variables) {
-        const num = parseFloat(v.value);
-        if (Number.isFinite(num)) ctx[v.name] = num;
-      }
+    for (const [name, value] of Object.entries(store.variables)) {
+      if (Number.isFinite(value)) ctx[name] = value;
     }
     return ctx;
-  }, [calcState.lastAnswer, angleMode, appState]);
+  }, [angleMode, store.lastAnswer, store.memory, store.variables]);
 
   const handleEvaluate = useCallback(() => {
     if (!calcState.expression.trim()) return;
     try {
-      const res = calculate(calcState.expression, evalContext as Record<string, string | number>).result;
+      const assignment = calcState.expression.match(/^(.*?)(?:→|=>)\s*([A-Za-z])$/);
+      const sourceExpression = assignment?.[1]?.trim() || calcState.expression;
+      const res = calculate(sourceExpression, evalContext as Record<string, string | number>).result;
       const num = parseFloat(res);
       const formatted = Number.isFinite(num) ? parseFloat(num.toPrecision(10)).toString() : res;
+      if (assignment && Number.isFinite(num)) store.setVariable(assignment[2], num);
       setIsError(false);
       dispatch({ type: "EVALUATE", payload: formatted });
-      setLastAnswer(num);
+      if (Number.isFinite(num)) setLastAnswer(num);
       addHistory({ expression: calcState.expression, result: formatted });
     } catch (err: unknown) {
       setIsError(true);
-      dispatch({
-        type: "SET_RESULT",
-        payload: err instanceof Error ? err.message.replace("Error: ", "") : "Math ERROR",
-      });
+      dispatch({ type: "SET_ERROR", payload: err instanceof Error ? err.message.replace("Error: ", "") : "Math ERROR" });
     }
-  }, [dispatch, calcState.expression, evalContext, setLastAnswer, addHistory]);
+  }, [dispatch, calcState.expression, evalContext, setLastAnswer, addHistory, setIsError, store]);
 
   const handleAlgebra = useCallback(async (operation: "simplify" | "factor" | "expand" | "solve") => {
     if (!calcState.expression.trim()) return;
@@ -475,9 +482,9 @@ export default function CalculatorShell() {
       dispatch({ type: "SET_RESULT", payload: response.result });
     } else {
       setIsError(true);
-      dispatch({ type: "SET_RESULT", payload: response.error ?? "CAS ERROR" });
+      dispatch({ type: "SET_ERROR", payload: response.error ?? "CAS ERROR" });
     }
-  }, [calcState.expression, dispatch]);
+  }, [calcState.expression, dispatch, setIsError]);
 
   const insertToken = useCallback((text: string, cursorBack = 0) => {
     dispatch({ type: "APPEND_TOKEN", payload: { text, cursorBack } });
@@ -495,19 +502,43 @@ export default function CalculatorShell() {
 
   // ── Button click handler ────────────────────────────────────────────────────
   const handleClick = useCallback((action: string) => {
+    if (poweredOff) {
+      if (action === "clear") setPoweredOff(false);
+      return;
+    }
     setIsError(false);
+
+    if (currentMode !== "RUN_MAT" && currentMode !== "MENU" && /^f[1-6]$/.test(action)) {
+      window.dispatchEvent(new CustomEvent("casio-fkey", { detail: action.toUpperCase() }));
+      return;
+    }
 
     // ── Modifier keys ─────────────────────────────────────────────────────────
     if (action === "shift") { toggleShift(); return; }
     if (action === "alpha") { toggleAlpha(); return; }
 
     const wasShift = shiftActive;
+    const wasAlpha = alphaActive;
     clearModifiers();
+
+    if (wasAlpha) {
+      const definition = keyRows.flat().find((key) => key.action === action);
+      if (definition?.alphaLabel) {
+        const alphaTokens: Record<string, string> = { Ans: "ans", "π": "pi", "θ": "theta", "\"\"": "\"\"" };
+        insertToken(alphaTokens[definition.alphaLabel] ?? definition.alphaLabel);
+        return;
+      }
+    }
 
     // ── Control ───────────────────────────────────────────────────────────────
     switch (action) {
-      case "clear":     dispatch({ type: "CLEAR" }); return;
-      case "backspace": dispatch({ type: "BACKSPACE" }); return;
+      case "clear":
+        if (wasShift) setPoweredOff(true);
+        else dispatch({ type: "CLEAR" });
+        return;
+      case "backspace":
+        if (!wasShift) dispatch({ type: "BACKSPACE" });
+        return;
       case "enter":     handleEvaluate(); return;
       case "menu":      setMode("MENU"); return;
       case "exit":
@@ -520,7 +551,9 @@ export default function CalculatorShell() {
         }
         return;
       case "m+":
-        store.addMemory(Number(calcState.result) || 0); return;
+        if (wasShift) store.subtractMemory(Number(calcState.result) || 0);
+        else store.addMemory(Number(calcState.result) || 0);
+        return;
       case "m-":
         store.subtractMemory(Number(calcState.result) || 0); return;
     }
@@ -529,6 +562,37 @@ export default function CalculatorShell() {
     const append = (token: string, cursorBack = 0) => {
       insertToken(token, cursorBack);
     };
+
+    if (wasShift) {
+      switch (action) {
+        case "3": append("pi"); return;
+        case "0": append("i"); return;
+        case ".": append("="); return;
+        case "1": append("[]", 1); return;
+        case "2": append(" "); return;
+        case "6": setMode("MATRIX"); return;
+        case "7":
+        case "8":
+          void navigator.clipboard?.writeText(`${calcState.expression}${calcState.result ? `\n${calcState.result}` : ""}`);
+          return;
+        case "9":
+          void navigator.clipboard?.readText().then((text) => append(text)).catch(() => undefined);
+          return;
+        case "sto": append(String(store.recallMemory())); return;
+        case "nthroot": append("frac(,)", 2); return;
+        case "frac":
+        case "s2d":
+          if (calcState.result) {
+            const numeric = Number(calcState.result);
+            const fraction = Number.isFinite(numeric) ? toSimpleFraction(numeric) : null;
+            dispatch({ type: "SET_RESULT", payload: fraction ?? calcState.result });
+          }
+          return;
+        case "(": append("sqrt()", 1); return;
+        case ")": append("^2"); return;
+        case ",": append("[]", 1); return;
+      }
+    }
 
     // ── Number / simple operators ─────────────────────────────────────────────
     if (/^[0-9]$/.test(action) || ["+", "-", "*", "/", ".", "(", ")", ","].includes(action)) {
@@ -620,7 +684,7 @@ export default function CalculatorShell() {
         else append("integral(,,)", 3);
         break;
       case "sigma":
-        append("sum(,,)", 3);
+        append(wasShift ? "product(,,)" : "sum(,,)", 3);
         break;
 
       // ── Arrow / comma ─────────────────────────────────────────────────────
@@ -631,13 +695,18 @@ export default function CalculatorShell() {
 
       // ── Memory / store / ENG ──────────────────────────────────────────────
       case "sto":
-        // Stores result to memory (simplified)
         if (calcState.result) {
-          store.addMemory(0); // reset then add
-          store.addMemory(parseFloat(calcState.result) || 0);
+          store.storeMemory(parseFloat(calcState.result) || 0);
         }
         break;
       case "eng":
+        if (calcState.result) {
+          const value = Number(calcState.result);
+          if (Number.isFinite(value) && value !== 0) {
+            const exponent = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
+            dispatch({ type: "SET_RESULT", payload: `${Number((value / 10 ** exponent).toPrecision(10))}e${exponent}` });
+          }
+        }
         break;
 
       // ── F-keys (dynamic sub-menu navigation and token insertion) ─────────
@@ -671,7 +740,7 @@ export default function CalculatorShell() {
       case "f4":
         if (fKeyMenu === "main") setMode("MENU");
         else if (fKeyMenu === "more") store.addMemory(Number(calcState.result) || 0);
-        else if (fKeyMenu === "calc") append("solve()", 1);
+        else if (fKeyMenu === "calc") void handleAlgebra("solve");
         else if (fKeyMenu === "algb") void handleAlgebra("solve");
         else if (fKeyMenu === "optn") setFKeyMenu("calc");
         else if (fKeyMenu === "optn2") append("abs()", 1);
@@ -710,13 +779,30 @@ export default function CalculatorShell() {
         }
     }
   }, [dispatch, handleEvaluate, setMode, store, calcState.result, calcState.expression,
-      toggleShift, toggleAlpha, clearModifiers, shiftActive, currentMode,
-      fKeyMenu, setFKeyMenu, handleAlgebra, insertToken]);
+      toggleShift, toggleAlpha, clearModifiers, shiftActive, alphaActive, currentMode, poweredOff,
+      fKeyMenu, setFKeyMenu, handleAlgebra, insertToken, setIsError]);
 
   // ── Keyboard handler ────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.matches("input, textarea, [contenteditable='true']")) return;
       if (currentMode === "MENU") return; // Let menu handle its own keys
+
+      if (currentMode !== "RUN_MAT") {
+        const action = mapKeyboardEvent(e);
+        if (action.type === "CONTROL" && action.value === "EXIT") {
+          e.preventDefault();
+          setMode("MENU");
+        } else if (action.type === "FKEY") {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent("casio-fkey", { detail: action.value }));
+        } else if (action.type === "DPAD") {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent("casio-nav", { detail: action.value }));
+        }
+        return;
+      }
       if (shouldPreventDefault(e)) e.preventDefault();
 
       const action = mapKeyboardEvent(e);
@@ -752,7 +838,7 @@ export default function CalculatorShell() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dispatch, handleEvaluate, currentMode, setMode, handleClick, insertToken, moveCursor]);
+  }, [dispatch, handleEvaluate, currentMode, setMode, handleClick, insertToken, moveCursor, setIsError]);
 
   const handleNav = useCallback((dir: string) => {
     if (currentMode === "RUN_MAT") {
@@ -762,22 +848,19 @@ export default function CalculatorShell() {
       }
       return;
     }
-    const keyMap: Record<string, string> = {
-      UP: "ArrowUp",
-      DOWN: "ArrowDown",
-      LEFT: "ArrowLeft",
-      RIGHT: "ArrowRight",
-      CENTER: "Enter",
-    };
-    const key = keyMap[dir];
-    if (key) {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+    if (currentMode === "MENU") {
+      const keyMap: Record<string, string> = { UP: "ArrowUp", DOWN: "ArrowDown", LEFT: "ArrowLeft", RIGHT: "ArrowRight", CENTER: "Enter" };
+      const key = keyMap[dir];
+      if (key) window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new CustomEvent("casio-nav", { detail: dir }));
     }
   }, [currentMode, handleEvaluate, moveCursor]);
 
   // ── Display ──────────────────────────────────────────────────────────────────
   const showResult = calcState.result !== "";
   const isMenuMode = currentMode === "MENU";
+  const isRunMode = currentMode === "RUN_MAT";
 
   return (
     <div
@@ -830,8 +913,12 @@ export default function CalculatorShell() {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
             >
-              {isMenuMode ? (
+              {poweredOff ? (
+                <div className="h-full bg-[#020407]" aria-label="Calculator powered off" />
+              ) : isMenuMode ? (
                 <CasioMenuScreen onSelect={(mode) => setMode(mode)} />
+              ) : !isRunMode ? (
+                <CasioModeScreen mode={currentMode} />
               ) : (
                 <CasioScreen
                   expression={calcState.expression}

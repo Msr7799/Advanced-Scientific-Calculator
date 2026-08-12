@@ -46,6 +46,8 @@ function functionLatex(name: string, argumentSource: string, visibleCursor: bool
     case "cbrt": return `\\sqrt[3]{${arg(0)}}`;
     case "nthRoot": return `\\sqrt[${arg(1)}]{${arg(0)}}`;
     case "frac": return `\\frac{${arg(0)}}{${arg(1)}}`;
+    case "nCr": return `{}^{${arg(0)}}\\mathrm{C}_{${arg(1)}}`;
+    case "nPr": return `{}^{${arg(0)}}\\mathrm{P}_{${arg(1)}}`;
     case "abs": return `\\left|${arg(0)}\\right|`;
     case "asin": return `\\sin^{-1}\\left(${arg(0)}\\right)`;
     case "acos": return `\\cos^{-1}\\left(${arg(0)}\\right)`;
@@ -71,6 +73,10 @@ function functionLatex(name: string, argumentSource: string, visibleCursor: bool
       return args.length >= 3
         ? `\\sum_{x=${arg(1)}}^{${arg(2)}} ${arg(0)}`
         : `\\sum\\left(${args.join(",") || placeholder}\\right)`;
+    case "product":
+      return args.length >= 3
+        ? `\\prod_{x=${arg(1)}}^{${arg(2)}} ${arg(0)}`
+        : `\\prod\\left(${args.join(",") || placeholder}\\right)`;
     default:
       return `\\operatorname{${name}}\\left(${args.join(",") || placeholder}\\right)`;
   }

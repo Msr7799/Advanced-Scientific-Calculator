@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useCasioStore } from "@/store/calculatorStore";
+import { calculate } from "@/lib/math/engine";
+import { Trash2 } from "lucide-react";
 
 declare global {
   interface Window {
@@ -19,6 +21,7 @@ interface DesmosInstance {
   destroy(): void;
   updateSettings(s: Record<string, unknown>): void;
   screenshot(opts?: Record<string, unknown>): string;
+  setMathBounds(bounds: { left: number; right: number; bottom: number; top: number }): void;
 }
 
 // F-key labels for graph mode (matching real fx-CG50)
@@ -32,15 +35,17 @@ const GRAPH_FKEYS = [
 ];
 
 // Graph line colors matching Casio color scheme
-const LINE_COLORS = ["#e05050", "#4488e0", "#44b050", "#d09040", "#a050d0", "#40c0c0"];
-
 export default function GraphMode() {
   const calcRef = useRef<HTMLDivElement>(null);
   const desmosRef = useRef<DesmosInstance | null>(null);
-  const { graphEquations, setGraphEquation, addGraphEquation, toggleGraphEquation } = useCasioStore();
+  const { graphEquations, setGraphEquation, addGraphEquation, removeGraphEquation, toggleGraphEquation, setMode } = useCasioStore();
   const [desmosReady, setDesmosReady] = useState(false);
   const [traceMode, setTraceMode] = useState(false);
   const [activeEq, setActiveEq] = useState<string | null>(null);
+  const [traceX, setTraceX] = useState(0);
+  const [bounds, setBounds] = useState({ left: -10, right: 10, bottom: -10, top: 10 });
+  const [showWindow, setShowWindow] = useState(false);
+  const [graphMessage, setGraphMessage] = useState("");
 
   // ── Initialize Desmos ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -106,6 +111,75 @@ export default function GraphMode() {
     setGraphEquation(id, value);
   }, [setGraphEquation]);
 
+  const applyBounds = useCallback((next: typeof bounds) => {
+    if (!(next.left < next.right && next.bottom < next.top)) {
+      setGraphMessage("V-Window limits are invalid");
+      return;
+    }
+    setBounds(next);
+    desmosRef.current?.setMathBounds(next);
+    setGraphMessage("");
+  }, []);
+
+  const handleFKey = useCallback((index: number) => {
+    const active = graphEquations.find((equation) => equation.id === activeEq) ?? graphEquations.find((equation) => equation.visible && equation.expression.trim());
+    if (index === 0) { setTraceMode((value) => !value); setGraphMessage(""); return; }
+    if (index === 1) {
+      const next = bounds.right - bounds.left > 10
+        ? { left: -5, right: 5, bottom: -5, top: 5 }
+        : { left: -10, right: 10, bottom: -10, top: 10 };
+      applyBounds(next); return;
+    }
+    if (index === 2) { setShowWindow((value) => !value); return; }
+    if (index === 3) {
+      if (!active) { setGraphMessage("Select an equation first"); return; }
+      try {
+        const y = Number(calculate(active.expression, { x: traceX }).result);
+        desmosRef.current?.setExpression({ id: "sketch-marker", latex: `(${traceX},${y})`, color: "#ffffff" });
+        setGraphMessage(`Point (${traceX}, ${Number(y.toPrecision(7))})`);
+      } catch { setGraphMessage("Cannot sketch this equation"); }
+      return;
+    }
+    if (index === 4) {
+      if (!active) { setGraphMessage("Select an equation first"); return; }
+      try {
+        let previousX = bounds.left;
+        let previousY = Number(calculate(active.expression, { x: previousX }).result);
+        let root: number | null = previousY === 0 ? previousX : null;
+        for (let step = 1; step <= 500 && root === null; step++) {
+          const x = bounds.left + ((bounds.right - bounds.left) * step) / 500;
+          const y = Number(calculate(active.expression, { x }).result);
+          if (Number.isFinite(y) && Number.isFinite(previousY) && y * previousY <= 0) {
+            let low = previousX, high = x;
+            for (let iteration = 0; iteration < 40; iteration++) {
+              const middle = (low + high) / 2;
+              const middleY = Number(calculate(active.expression, { x: middle }).result);
+              if (middleY * previousY <= 0) high = middle; else low = middle;
+            }
+            root = (low + high) / 2;
+          }
+          previousX = x; previousY = y;
+        }
+        setGraphMessage(root === null ? "No root in the visible window" : `Root x = ${Number(root.toPrecision(9))}`);
+      } catch { setGraphMessage("G-Solv could not evaluate the equation"); }
+      return;
+    }
+    if (index === 5) setMode("TABLE");
+  }, [activeEq, applyBounds, bounds, graphEquations, setMode, traceX]);
+
+  useEffect(() => {
+    const onFKey = (event: Event) => handleFKey(Number((event as CustomEvent<string>).detail.slice(1)) - 1);
+    const onNav = (event: Event) => {
+      if (!traceMode) return;
+      const direction = (event as CustomEvent<string>).detail;
+      if (direction === "LEFT") setTraceX((value) => Number((value - 0.1).toFixed(8)));
+      if (direction === "RIGHT") setTraceX((value) => Number((value + 0.1).toFixed(8)));
+    };
+    window.addEventListener("casio-fkey", onFKey);
+    window.addEventListener("casio-nav", onNav);
+    return () => { window.removeEventListener("casio-fkey", onFKey); window.removeEventListener("casio-nav", onNav); };
+  }, [handleFKey, traceMode]);
+
   return (
     <div className="flex h-full overflow-hidden" style={{ background: "#080e18" }}>
 
@@ -120,13 +194,15 @@ export default function GraphMode() {
           style={{ borderColor: "#1a2840", background: "#06101c" }}
         >
           {GRAPH_FKEYS.map((fk) => (
-            <div
+            <button
               key={fk.key}
+              type="button"
+              onClick={() => handleFKey(Number(fk.key.slice(1)) - 1)}
               className="py-1.5 text-center text-[8px] font-bold truncate border-r last:border-r-0"
               style={{ color: fk.color, borderColor: "#1a2840" }}
             >
               {fk.label}
-            </div>
+            </button>
           ))}
         </div>
 
@@ -168,6 +244,7 @@ export default function GraphMode() {
                 }}
                 placeholder={`f(x) for Y${idx + 1}`}
               />
+              {graphEquations.length > 1 && <button type="button" onClick={() => removeGraphEquation(eq.id)} className="mode-icon-button ml-auto" title={`Remove Y${idx + 1}`}><Trash2 size={12} /></button>}
             </div>
           ))}
 
@@ -203,7 +280,10 @@ export default function GraphMode() {
       </div>
 
       {/* ── Desmos graph area ──────────────────────────────────── */}
-      <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden">
+        {showWindow && <div className="absolute left-3 top-3 z-30 grid grid-cols-2 gap-2 rounded border border-[#294766] bg-[#071322] p-3">
+          {(["left", "right", "bottom", "top"] as const).map((key) => <label key={key} className="text-[9px] uppercase text-[#6f8eaf]">{key}<input type="number" value={bounds[key]} onChange={(event) => applyBounds({ ...bounds, [key]: Number(event.target.value) })} className="mt-1 block w-20 rounded border border-[#294766] bg-[#020817] px-2 py-1 text-white" /></label>)}
+        </div>}
         {/* Desmos container */}
         <div
           ref={calcRef}
@@ -234,6 +314,7 @@ export default function GraphMode() {
         >
           GRAPH Y=
         </div>
+        {(graphMessage || traceMode) && <div className="absolute bottom-3 left-3 z-20 rounded border border-[#294766] bg-[#071322dd] px-3 py-2 font-mono text-[10px] text-[#80c8ff]">{graphMessage || `TRACE x=${traceX}`}</div>}
       </div>
     </div>
   );
@@ -249,7 +330,7 @@ function convertToDesmosLatex(expr: string): string {
 }
 
 // ─── SVG fallback graph when Desmos not available ────────────────────────────
-function FallbackGraph({ equations }: { equations: typeof LINE_COLORS extends unknown[] ? { id: string; expression: string; color: string; visible: boolean }[] : never }) {
+function FallbackGraph({ equations }: { equations: { id: string; expression: string; color: string; visible: boolean }[] }) {
   const W = 500, H = 300;
 
   function buildPath(expr: string, color: string, idx: number) {
@@ -262,8 +343,7 @@ function FallbackGraph({ equations }: { equations: typeof LINE_COLORS extends un
       const x = from + (i / steps) * (to - from);
       let y: number;
       try {
-        const fn = new Function("x", `with(Math){return ${expr.replace(/\^/g, "**")};}`);
-        y = fn(x) as number;
+        y = Number(calculate(expr, { x }).result);
       } catch { continue; }
       if (!Number.isFinite(y) || Math.abs(y) > 20) { cmd = "M"; continue; }
       const px = ((x - from) / (to - from)) * W;

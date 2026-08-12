@@ -15,9 +15,26 @@ const MODES: Array<{ id: EquationType; label: string; hint: string; initial: str
   { id: "system3", label: "SIMUL 3", hint: "Three equations, one per line", initial: "x+y+z=6\n2*x-y+z=3\nx-2*y+3*z=4" },
 ];
 
+function splitSolutions(value: string): string[] {
+  const source = value.replace(/^\[|\]$/g, "");
+  const solutions: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < source.length; index++) {
+    if ("([{".includes(source[index])) depth++;
+    if (")]}".includes(source[index])) depth--;
+    if (source[index] === "," && depth === 0) {
+      solutions.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  solutions.push(source.slice(start).trim());
+  return solutions.filter(Boolean);
+}
+
 function solveEquation(mode: EquationType, input: string): string[] {
   if (mode === "solver" || mode === "polynomial") {
-    const solutions = nerdamer.solve(input, "x").toString().replace(/^\[|\]$/g, "").split(",").filter(Boolean);
+    const solutions = splitSolutions(nerdamer.solve(input, "x").toString());
     if (solutions.length === 0) throw new Error("No real or symbolic solution found");
     return solutions.map((solution, index) => solutions.length === 1 ? `x = ${solution}` : `x${index + 1} = ${solution}`);
   }
@@ -65,7 +82,7 @@ export default function EquationSolver() {
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(300px,0.62fr)]">
+      <div className="mode-responsive-grid grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(300px,0.62fr)]">
         <div className="flex min-h-0 flex-col border-r border-[#20324a] p-4">
           <label className="mb-2 text-[10px] font-bold tracking-[0.16em] text-[#66809b]">{currentMode.hint.toUpperCase()}</label>
           <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => {

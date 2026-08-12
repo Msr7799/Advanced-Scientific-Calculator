@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch } from "react";
-import { CalculatorState, HistoryEntry } from "@/types/calculator";
+import { CalculatorState } from "@/types/calculator";
 
 interface CalculatorAction {
   type: string;
@@ -20,6 +20,7 @@ const STORAGE_KEY = "advanced-calculator-state";
 const initialState: CalculatorState = {
   expression: "",
   result: "",
+  isError: false,
   cursorPosition: 0,
   memory: 0,
   history: [],
@@ -47,6 +48,7 @@ function readStoredState(): CalculatorState | undefined {
       ...initialState,
       expression: String(parsed.expression ?? ""),
       result: String(parsed.result ?? ""),
+      isError: false,
       cursorPosition: String(parsed.expression ?? "").length,
       memory: memoryValue,
       mode: parsed.mode === "light" ? "light" : "dark",
@@ -57,13 +59,6 @@ function readStoredState(): CalculatorState | undefined {
   } catch {
     return undefined;
   }
-}
-
-function addHistoryEntry(state: CalculatorState, expression: string, result: string): HistoryEntry[] {
-  const entry: HistoryEntry = {
-    id: crypto.randomUUID(), expression, result, pinned: false, createdAt: new Date().toISOString(),
-  };
-  return [entry, ...state.history].slice(0, 10);
 }
 
 function calculatorReducer(state: CalculatorState, action: CalculatorAction): CalculatorState {
@@ -81,6 +76,7 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         ...state,
         expression: String(payload.expression ?? state.expression),
         result: String(payload.result ?? state.result),
+        isError: false,
         cursorPosition: String(payload.expression ?? state.expression).length,
         memory: memoryValue,
         mode: payload.mode === "light" ? "light" : state.mode,
@@ -94,7 +90,9 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
       return { ...state, expression, cursorPosition: expression.length };
     }
     case "SET_RESULT":
-      return { ...state, result: String(action.payload ?? "") };
+      return { ...state, result: String(action.payload ?? ""), isError: false };
+    case "SET_ERROR":
+      return { ...state, result: String(action.payload ?? "Math ERROR"), isError: true };
     case "APPEND_TOKEN": {
       const payload = typeof action.payload === "object" && action.payload !== null
         ? action.payload as { text?: unknown; cursorBack?: unknown }
@@ -107,6 +105,7 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         ...state,
         expression,
         result: "",
+        isError: false,
         cursorPosition: Math.max(cursor, cursor + text.length - cursorBack),
       };
     }
@@ -116,7 +115,7 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         cursorPosition: Math.min(state.expression.length, Math.max(0, Number(action.payload) || 0)),
       };
     case "CLEAR":
-      return { ...state, expression: "", result: "", cursorPosition: 0 };
+      return { ...state, expression: "", result: "", isError: false, cursorPosition: 0 };
     case "BACKSPACE": {
       const cursor = Math.min(state.expression.length, Math.max(0, state.cursorPosition));
       if (cursor === 0) return state;
@@ -124,6 +123,7 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
         ...state,
         expression: `${state.expression.slice(0, cursor - 1)}${state.expression.slice(cursor)}`,
         result: "",
+        isError: false,
         cursorPosition: cursor - 1,
       };
     }
@@ -131,7 +131,14 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
       const expression = state.expression.trim();
       const result = String(action.payload ?? state.result);
       if (!expression) return state;
-      return { ...state, result, lastAnswer: Number(result) || state.lastAnswer, history: addHistoryEntry(state, expression, result) };
+      const numericResult = Number(result);
+      return {
+        ...state,
+        result,
+        isError: false,
+        lastAnswer: Number.isFinite(numericResult) ? numericResult : state.lastAnswer,
+        history: state.history,
+      };
     }
     case "PIN_HISTORY":
       return {

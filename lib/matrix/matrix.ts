@@ -1,4 +1,5 @@
 export type Matrix = number[][];
+const EPSILON = 1e-10;
 
 function validateMatrix(matrix: Matrix): void {
   if (matrix.length === 0) {
@@ -12,6 +13,7 @@ function validateMatrix(matrix: Matrix): void {
     if (row.length !== width) {
       throw new Error("Matrix must have equal row lengths");
     }
+    if (row.some((value) => !Number.isFinite(value))) throw new Error("Matrix values must be finite numbers");
   }
 }
 
@@ -73,6 +75,7 @@ export function minorMatrix(matrix: Matrix, rowToRemove: number, colToRemove: nu
 
 export function cofactorMatrix(matrix: Matrix): Matrix {
   validateMatrix(matrix);
+  if (matrix.length === 1 && matrix[0].length === 1) return [[1]];
   return matrix.map((row, rowIndex) =>
     row.map((_, colIndex) => {
       const sign = (rowIndex + colIndex) % 2 === 0 ? 1 : -1;
@@ -83,7 +86,7 @@ export function cofactorMatrix(matrix: Matrix): Matrix {
 
 export function inverseMatrix(matrix: Matrix): Matrix {
   const det = determinant(matrix);
-  if (det === 0) {
+  if (Math.abs(det) < EPSILON) {
     throw new Error("Matrix is singular and cannot be inverted");
   }
   const cof = cofactorMatrix(matrix);
@@ -100,7 +103,7 @@ export function rankMatrix(matrix: Matrix): number {
 
   for (let columnIndex = 0; columnIndex < columnCount && rowIndex < temp.length; columnIndex += 1) {
     let pivotRow = rowIndex;
-    while (pivotRow < temp.length && temp[pivotRow][columnIndex] === 0) {
+    while (pivotRow < temp.length && Math.abs(temp[pivotRow][columnIndex]) < EPSILON) {
       pivotRow += 1;
     }
     if (pivotRow === temp.length) {

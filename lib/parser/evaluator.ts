@@ -13,6 +13,22 @@ const constants: Record<string, number> = {
   Infinity: Infinity,
 };
 
+function factorial(value: number): number {
+  if (!Number.isInteger(value) || value < 0) throw new Error("Factorial requires a non-negative integer");
+  if (value > 170) throw new Error("Math overflow");
+  let result = 1;
+  for (let index = 2; index <= value; index++) result *= index;
+  return result;
+}
+
+function nthRoot(value: number, degree: number): number {
+  if (!Number.isInteger(degree) || degree === 0) throw new Error("Root degree must be a non-zero integer");
+  if (value < 0 && Math.abs(degree) % 2 === 0) throw new Error("Math ERROR");
+  const result = Math.pow(Math.abs(value), 1 / Math.abs(degree));
+  const signed = value < 0 ? -result : result;
+  return degree < 0 ? 1 / signed : signed;
+}
+
 const functions: Record<string, (...args: number[]) => number> = {
   sin: (x) => Math.sin(x),
   cos: (x) => Math.cos(x),
@@ -26,16 +42,16 @@ const functions: Record<string, (...args: number[]) => number> = {
   ln: (x) => Math.log(x),
   log: (x) => Math.log10(x),
   sqrt: (x) => Math.sqrt(x),
+  cbrt: (x) => Math.cbrt(x),
   abs: (x) => Math.abs(x),
   exp: (x) => Math.exp(x),
-  root: (x, n = 2) => Math.pow(x, 1 / n),
-  factorial: (x) => {
-    const value = Math.trunc(x);
-    if (value < 0 || value !== x) {
-      throw new Error("Factorial requires a non-negative integer");
-    }
-    return value <= 1 ? 1 : value * functions.factorial(value - 1);
-  },
+  root: nthRoot,
+  nthRoot,
+  frac: (numerator, denominator) => numerator / denominator,
+  factorial,
+  nCr: (n, r) => factorial(n) / (factorial(r) * factorial(n - r)),
+  nPr: (n, r) => factorial(n) / factorial(n - r),
+  convert: (value) => value,
 };
 
 function evaluateAst(node: AstNode, context?: EvaluationContext): number {
@@ -126,6 +142,16 @@ function evaluateAst(node: AstNode, context?: EvaluationContext): number {
         const upper = evaluateAst(node.args[0], { ...context, x: point + h });
         const lower = evaluateAst(node.args[0], { ...context, x: point - h });
         return (upper - lower) / (2 * h);
+      }
+      if (node.name === "product") {
+        if (node.args.length < 3) throw new Error("Product requires 3 arguments: expression, start, end");
+        const start = Math.round(evaluateAst(node.args[1], context));
+        const end = Math.round(evaluateAst(node.args[2], context));
+        let product = 1;
+        for (let xVal = start; xVal <= end; xVal++) {
+          product *= evaluateAst(node.args[0], { ...context, x: xVal });
+        }
+        return product;
       }
       if (["sin", "cos", "tan"].includes(node.name)) {
         if (node.args.length < 1) throw new Error(`${node.name} requires 1 argument`);

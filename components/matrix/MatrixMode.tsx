@@ -12,6 +12,7 @@ function parseMatrix(value: string) {
     .map((line) => line.split(/[,\s]+/).map((cell) => Number(cell)));
   if (rows.length === 0) throw new Error("Enter at least one row");
   if (new Set(rows.map((row) => row.length)).size !== 1) throw new Error("All rows must have the same length");
+  if (rows.some((row) => row.some((cell) => !Number.isFinite(cell)))) throw new Error("Every matrix cell must be a valid number");
   return rows;
 }
 

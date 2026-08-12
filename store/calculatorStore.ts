@@ -30,6 +30,9 @@ interface CasioStore {
   clearMemory: () => void;
   recallMemory: () => number;
 
+  variables: Record<string, number>;
+  setVariable: (name: string, value: number) => void;
+
   // History
   history: HistoryEntry[];
   addHistory: (entry: Omit<HistoryEntry, "id" | "createdAt" | "pinned">) => void;
@@ -115,6 +118,11 @@ export const useCasioStore = create<CasioStore>()(
       clearMemory: () => set({ memory: 0 }),
       recallMemory: () => get().memory,
 
+      variables: { x: 0, y: 0, z: 0 },
+      setVariable: (name, value) => set((state) => ({
+        variables: { ...state.variables, [name.toLowerCase()]: value },
+      })),
+
       // History
       history: [],
       addHistory: (entry) =>
@@ -180,6 +188,7 @@ export const useCasioStore = create<CasioStore>()(
         history: s.history,
         graphEquations: s.graphEquations,
         lastAnswer: s.lastAnswer,
+        variables: s.variables,
       }),
     }
   )

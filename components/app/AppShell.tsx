@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { AppProvider } from "@/lib/state/appState";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { CalculatorProvider, useCalculatorState } from "@/lib/state/calculatorState";
 import { useCasioStore } from "@/store/calculatorStore";
 import CalculatorShell from "@/components/calculator/CalculatorShell";
@@ -283,9 +283,15 @@ function DraggableCalculator({
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       if (!dragRef.current) return;
+      const viewportWidth = containerRef.current?.parentElement?.clientWidth ?? window.innerWidth;
+      const viewportHeight = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
+      const maxX = Math.max(0, viewportWidth / 2 - 90);
+      const maxY = Math.max(0, viewportHeight / 2 - 90);
+      const nextX = dragRef.current.origX + (e.clientX - dragRef.current.startX);
+      const nextY = dragRef.current.origY + (e.clientY - dragRef.current.startY);
       setPos({
-        x: dragRef.current.origX + (e.clientX - dragRef.current.startX),
-        y: dragRef.current.origY + (e.clientY - dragRef.current.startY),
+        x: Math.max(-maxX, Math.min(maxX, nextX)),
+        y: Math.max(-maxY, Math.min(maxY, nextY)),
       });
     };
     const onUp = () => { dragRef.current = null; setIsDragging(false); };
@@ -519,11 +525,16 @@ function MiniHistory() {
 }
 
 // ─── Expanded display (large mirrored LCD panel) ───────────────────────────
-function ExpandedDisplay({ onClose }: { onClose: () => void }) {
+function ExpandedDisplay({ mode, onClose, onFullscreen }: {
+  mode: CasioMode;
+  onClose: () => void;
+  onFullscreen: () => void;
+}) {
   const calcState = useCalculatorState();
-  const [isError] = useState(false);
 
   const showResult = calcState.result !== "";
+  const isCalculatorDisplay = mode === "RUN_MAT" || mode === "MENU";
+  const meta = MODE_META[mode];
 
   return (
     <motion.div
@@ -531,9 +542,8 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -40, scale: 0.96 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="flex flex-col rounded-2xl overflow-hidden shrink-0"
+      className="expanded-display flex flex-col rounded-2xl overflow-hidden shrink-0"
       style={{
-        width: 520,
         background: "#080e18",
         border: "2px solid #1e3050",
         boxShadow: "0 0 40px rgba(20,60,120,0.25), 0 8px 32px rgba(0,0,0,0.5)",
@@ -554,29 +564,35 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
             className="font-mono font-bold tracking-[0.3em]"
             style={{ color: "#3a6090", fontSize: 11 }}
           >
-            EXPANDED DISPLAY
+            {meta.label} DISPLAY
           </span>
         </div>
-        <button
-          onClick={onClose}
-          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer hover:brightness-125"
-          style={{ background: "#1a2a40", color: "#5a8ab0", fontSize: 14 }}
-          title="Close expanded display"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1.5">
+          {!isCalculatorDisplay && (
+            <button type="button" onClick={onFullscreen} className="mode-icon-button" title={`Open ${meta.label} full screen`} aria-label={`Open ${meta.label} full screen`}>
+              <Maximize2 size={14} />
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="mode-icon-button" title="Close expanded display" aria-label="Close expanded display">
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Large LCD */}
-      <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-        <CasioScreen
-          expression={calcState.expression}
-          result={showResult ? calcState.result : ""}
-          isError={isError}
-          cursorPosition={calcState.cursorPosition}
-          displaySize="expanded"
-          modeTitle="RUN-MAT ● EXPANDED"
-        />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {isCalculatorDisplay ? (
+          <CasioScreen
+            expression={calcState.expression}
+            result={showResult ? calcState.result : ""}
+            isError={calcState.isError}
+            cursorPosition={calcState.cursorPosition}
+            displaySize="expanded"
+            modeTitle="RUN-MAT / EXPANDED"
+          />
+        ) : (
+          <ModePanel mode={mode} />
+        )}
       </div>
 
       {/* Footer hint */}
@@ -589,7 +605,7 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
           style={{ background: "#44cc88", boxShadow: "0 0 4px #44cc88" }}
         />
         <span style={{ color: "#2a4060", fontSize: 11, fontFamily: "monospace" }}>
-          Live mirror of calculator display
+          {isCalculatorDisplay ? "Live mirror of calculator display" : `${meta.label} workspace / maximize for full screen`}
         </span>
       </div>
     </motion.div>
@@ -599,57 +615,73 @@ function ExpandedDisplay({ onClose }: { onClose: () => void }) {
 // ─── App shell content ────────────────────────────────────────────────────────
 function AppShellContent() {
   const { currentMode, setMode } = useCasioStore();
-  const isCalcMode = currentMode === "RUN_MAT" || currentMode === "MENU";
-  const [showExpandedDisplay, setShowExpandedDisplay] = useState(false);
+  const [expandedDisplayRequested, setExpandedDisplayRequested] = useState(false);
+  const [dismissedExpandedMode, setDismissedExpandedMode] = useState<CasioMode | null>(null);
+  const [fullscreenMode, setFullscreenMode] = useState<CasioMode | null>(null);
+  const isWorkspaceMode = currentMode !== "RUN_MAT" && currentMode !== "MENU";
+  const showExpandedDisplay = expandedDisplayRequested || (isWorkspaceMode && dismissedExpandedMode !== currentMode);
+  const closeExpandedDisplay = () => {
+    setExpandedDisplayRequested(false);
+    setDismissedExpandedMode(currentMode);
+  };
+  const toggleExpandedDisplay = () => {
+    if (showExpandedDisplay) closeExpandedDisplay();
+    else {
+      setDismissedExpandedMode(null);
+      setExpandedDisplayRequested(true);
+    }
+  };
 
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 40%, #141c2a 0%, #0c0e14 60%, #080a10 100%)" }}
     >
-      {isCalcMode ? (
-        /* ── Calculator mode ── */
-        <div className="flex flex-1 overflow-hidden h-full">
+      <div className="flex flex-1 overflow-hidden h-full">
+        <AnimatePresence>
+          {showExpandedDisplay && (
+            <ExpandedDisplay
+              mode={currentMode}
+              onClose={closeExpandedDisplay}
+              onFullscreen={() => setFullscreenMode(currentMode)}
+            />
+          )}
+        </AnimatePresence>
 
-          {/* Expanded display panel — left */}
-          <AnimatePresence>
-            {showExpandedDisplay && (
-              <ExpandedDisplay onClose={() => setShowExpandedDisplay(false)} />
-            )}
-          </AnimatePresence>
+        <DraggableCalculator
+          showExpandedDisplay={showExpandedDisplay}
+          onToggleExpandedDisplay={toggleExpandedDisplay}
+        />
 
-          {/* Draggable calculator + zoom panel */}
-          <DraggableCalculator
-            showExpandedDisplay={showExpandedDisplay}
-            onToggleExpandedDisplay={() => setShowExpandedDisplay((v) => !v)}
-          />
+        <div className="desktop-info-panel flex flex-col gap-4 shrink-0 overflow-hidden" style={{ width: 320, padding: "20px 16px 20px 8px" }}>
+          <InfoCard />
+          <MiniHistory />
+        </div>
+      </div>
 
-          {/* Right info panel */}
-          <div
-            className="flex flex-col gap-4 shrink-0 overflow-hidden"
-            style={{ width: 320, padding: "20px 16px 20px 8px" }}
+      <AnimatePresence>
+        {fullscreenMode && fullscreenMode !== "RUN_MAT" && fullscreenMode !== "MENU" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-[#0d1520]"
           >
-            <InfoCard />
-            <MiniHistory />
-          </div>
-        </div>
-      ) : (
-        /* ── Non-calculator modes ── */
-        <div
-          className="flex flex-col flex-1 overflow-hidden m-4 rounded-2xl"
-          style={{
-            background: "#0d1520",
-            border: "1px solid #1a2a40",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          }}
-        >
-          <ModeHeader mode={currentMode} onBack={() => setMode("MENU")} />
-          <div className="flex flex-1 overflow-hidden">
-            <ModePanel mode={currentMode} />
-            <HistorySidebar />
-          </div>
-        </div>
-      )}
+            <div className="flex items-center border-b border-[#1a2a40] bg-[#09131f] pr-3">
+              <div className="flex-1">
+                <ModeHeader mode={fullscreenMode} onBack={() => { setFullscreenMode(null); setMode("MENU"); }} />
+              </div>
+              <button type="button" onClick={() => setFullscreenMode(null)} className="mode-icon-button" title="Return to calculator display" aria-label="Return to calculator display">
+                <Minimize2 size={15} />
+              </button>
+            </div>
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <ModePanel mode={fullscreenMode} />
+              <HistorySidebar />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -657,10 +689,8 @@ function AppShellContent() {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function AppShell() {
   return (
-    <AppProvider>
-      <CalculatorProvider>
-        <AppShellContent />
-      </CalculatorProvider>
-    </AppProvider>
+    <CalculatorProvider>
+      <AppShellContent />
+    </CalculatorProvider>
   );
 }

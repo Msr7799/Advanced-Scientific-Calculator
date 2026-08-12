@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FilePlus2, Play, RotateCcw, Save, Trash2 } from "lucide-react";
+import { FilePlus2, Play, RotateCcw, Save, Square, Trash2 } from "lucide-react";
 import Image from "next/image";
-import type { PyodideInterface } from "pyodide";
 
 interface PythonFile { name: string; code: string }
 
@@ -13,60 +12,14 @@ const DEFAULT_FILES: PythonFile[] = [
 ];
 
 const STORAGE_KEY = "fx-cg50-python-files";
-const PYODIDE_CDN_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/";
-
-type LoadPyodide = typeof import("pyodide")["loadPyodide"];
-
-async function loadPyodideFromCdn(): Promise<PyodideInterface> {
-  // Keep this import native so Turbopack does not rewrite Pyodide's internal
-  // package imports into an unresolved dynamic module expression.
-  const importFromUrl = new Function("url", "return import(url)") as (
-    url: string,
-  ) => Promise<{ loadPyodide: LoadPyodide }>;
-  const { loadPyodide } = await importFromUrl(`${PYODIDE_CDN_URL}pyodide.mjs`);
-  return loadPyodide({ indexURL: PYODIDE_CDN_URL });
-}
-
-export async function executePython(
-  runtime: PyodideInterface,
-  source: string,
-  filename: string,
-): Promise<string> {
-  runtime.globals.set("__calculator_source__", source);
-  runtime.globals.set("__calculator_filename__", filename);
-
-  try {
-    const result = await runtime.runPythonAsync(`
-import contextlib
-import io
-
-__calculator_output__ = io.StringIO()
-with contextlib.redirect_stdout(__calculator_output__), contextlib.redirect_stderr(__calculator_output__):
-    exec(compile(__calculator_source__, __calculator_filename__, "exec"), globals())
-__calculator_output__.getvalue()
-`);
-    return String(result ?? "");
-  } finally {
-    runtime.globals.delete("__calculator_source__");
-    runtime.globals.delete("__calculator_filename__");
-    runtime.globals.delete("__calculator_output__");
-  }
-}
-
-function outputLines(text: string): string[] {
-  const normalized = text.replace(/\r\n?/g, "\n");
-  const withoutTrailingNewline = normalized.endsWith("\n")
-    ? normalized.slice(0, -1)
-    : normalized;
-  return withoutTrailingNewline ? withoutTrailingNewline.split("\n") : [];
-}
-
 export default function PythonMode() {
   const [files, setFiles] = useState<PythonFile[]>(DEFAULT_FILES);
   const [activeIndex, setActiveIndex] = useState(0);
   const [output, setOutput] = useState<string[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "running" | "error">("idle");
-  const runtimeRef = useRef<PyodideInterface | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const runIdRef = useRef(0);
+  const [savedFiles, setSavedFiles] = useState(JSON.stringify(DEFAULT_FILES));
   const activeFile = files[activeIndex] ?? files[0];
 
   useEffect(() => {
@@ -76,13 +29,19 @@ export default function PythonMode() {
       if (saved) {
         const parsed = JSON.parse(saved) as PythonFile[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          frame = window.requestAnimationFrame(() => setFiles(parsed));
+          frame = window.requestAnimationFrame(() => {
+            setFiles(parsed);
+            setSavedFiles(JSON.stringify(parsed));
+          });
         }
       }
     } catch {
       // Ignore malformed local editor data.
     }
-    return () => { if (frame !== undefined) window.cancelAnimationFrame(frame); };
+    return () => {
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      workerRef.current?.terminate();
+    };
   }, []);
 
   const updateCode = (code: string) => {
@@ -91,6 +50,7 @@ export default function PythonMode() {
 
   const saveFiles = () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+    setSavedFiles(JSON.stringify(files));
     setOutput([`${activeFile.name} saved.`]);
   };
 
@@ -105,6 +65,7 @@ export default function PythonMode() {
   };
 
   const deleteFile = () => {
+    if (!window.confirm(`Delete ${activeFile.name}?`)) return;
     if (files.length === 1) {
       setFiles([{ name: "main.py", code: "" }]);
       setActiveIndex(0);
@@ -115,23 +76,52 @@ export default function PythonMode() {
     setOutput([]);
   };
 
-  const runPython = async () => {
-    setStatus(runtimeRef.current ? "running" : "loading");
-    setOutput([]);
-    try {
-      if (!runtimeRef.current) {
-        runtimeRef.current = await loadPyodideFromCdn();
-      }
-      setStatus("running");
-      await runtimeRef.current.loadPackagesFromImports(activeFile.code);
-      const text = await executePython(runtimeRef.current, activeFile.code, activeFile.name);
-      const lines = outputLines(text);
-      setOutput(lines.length > 0 ? lines : ["Program finished with no output."]);
-      setStatus("idle");
-    } catch (error) {
-      setOutput([error instanceof Error ? error.message : "Python execution failed"]);
-      setStatus("error");
+  const renameFile = (index: number) => {
+    const current = files[index];
+    const name = window.prompt("Python file name", current.name)?.trim();
+    if (!name) return;
+    const normalized = name.endsWith(".py") ? name : `${name}.py`;
+    if (files.some((file, fileIndex) => fileIndex !== index && file.name === normalized)) {
+      setOutput(["A file with that name already exists."]);
+      return;
     }
+    setFiles((items) => items.map((file, fileIndex) => fileIndex === index ? { ...file, name: normalized } : file));
+  };
+
+  const stopPython = () => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
+    runIdRef.current++;
+    setStatus("idle");
+    setOutput((current) => [...current, "Execution stopped."]);
+  };
+
+  const runPython = async () => {
+    if (status === "loading" || status === "running") return;
+    setStatus("loading");
+    setOutput([]);
+    workerRef.current?.terminate();
+    const worker = new Worker("/python-worker.js");
+    workerRef.current = worker;
+    const id = ++runIdRef.current;
+    worker.onmessage = ({ data }: MessageEvent<{ type: string; status?: "loading" | "running"; output?: string[]; message?: string; id: number }>) => {
+      if (data.id !== runIdRef.current) return;
+      if (data.type === "status" && data.status) setStatus(data.status);
+      if (data.type === "result") {
+        setOutput(data.output?.length ? data.output : ["Program finished with no output."]);
+        setStatus("idle");
+      }
+      if (data.type === "error") {
+        setOutput([...(data.output ?? []), data.message ?? "Python execution failed", "Press RUN to retry."]);
+        setStatus("error");
+      }
+    };
+    worker.onerror = () => {
+      if (id !== runIdRef.current) return;
+      setOutput(["Python runtime could not be loaded. Check the connection and press RUN to retry."]);
+      setStatus("error");
+    };
+    worker.postMessage({ type: "run", source: activeFile.code, filename: activeFile.name, id });
   };
 
   return (
@@ -145,7 +135,8 @@ export default function PythonMode() {
           unoptimized
           className="h-6 w-[82px] shrink-0 object-contain object-left"
         />
-        <span className="text-[9px] text-[#526b82]">MicroPython-compatible editor</span>
+        <span className="text-[9px] text-[#526b82]">Python 3 editor powered by Pyodide</span>
+        {JSON.stringify(files) !== savedFiles && <span className="text-[9px] text-[#e2b743]" title="Unsaved changes">UNSAVED</span>}
         <div className="ml-auto flex gap-1.5">
           <button type="button" onClick={createFile} className="mode-icon-button" title="New Python file"><FilePlus2 size={15} /></button>
           <button type="button" onClick={saveFiles} className="mode-icon-button" title="Save files"><Save size={15} /></button>
@@ -154,18 +145,19 @@ export default function PythonMode() {
           <button type="button" onClick={runPython} disabled={status === "loading" || status === "running"} className="inline-flex h-8 items-center gap-2 rounded-md border border-[#257653] bg-[#164832] px-3 text-[10px] font-bold text-[#a8f0ce] disabled:cursor-wait disabled:opacity-60">
             <Play size={13} fill="currentColor" /> {status === "loading" ? "LOADING" : status === "running" ? "RUNNING" : "RUN"}
           </button>
+          {(status === "loading" || status === "running") && <button type="button" onClick={stopPython} className="mode-icon-button mode-icon-danger" title="Stop Python"><Square size={14} fill="currentColor" /></button>}
         </div>
       </div>
 
-      <div className="flex h-9 shrink-0 items-end gap-1 border-b border-[#20334a] bg-[#09131f] px-2 pt-1">
+      <div className="flex h-9 shrink-0 items-end gap-1 overflow-x-auto border-b border-[#20334a] bg-[#09131f] px-2 pt-1">
         {files.map((file, index) => (
-          <button key={`${file.name}-${index}`} type="button" onClick={() => setActiveIndex(index)} className={`h-8 min-w-24 border-x border-t px-3 text-left font-mono text-[10px] ${index === activeIndex ? "border-[#31516f] bg-[#102239] text-white" : "border-transparent text-[#5f7992] hover:bg-[#0d1b2c]"}`}>
+          <button key={`${file.name}-${index}`} type="button" onClick={() => setActiveIndex(index)} onDoubleClick={() => renameFile(index)} title="Double-click to rename" className={`h-8 min-w-24 border-x border-t px-3 text-left font-mono text-[10px] ${index === activeIndex ? "border-[#31516f] bg-[#102239] text-white" : "border-transparent text-[#5f7992] hover:bg-[#0d1b2c]"}`}>
             {file.name}
           </button>
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(420px,1fr)_minmax(280px,0.42fr)]">
+      <div className="python-workspace grid min-h-0 flex-1 grid-cols-[minmax(420px,1fr)_minmax(280px,0.42fr)]">
         <div className="relative min-h-0 border-r border-[#20334a] bg-[#050b13]">
           <div className="pointer-events-none absolute bottom-2 right-3 z-10 font-mono text-[9px] text-[#31465b]">UTF-8 · Python 3</div>
           <textarea value={activeFile.code} onChange={(event) => updateCode(event.target.value)} onKeyDown={(event) => {
@@ -190,7 +182,7 @@ export default function PythonMode() {
             <span className={`ml-auto h-2 w-2 rounded-full ${status === "error" ? "bg-[#dd5f5f]" : status === "idle" ? "bg-[#3fac78]" : "animate-pulse bg-[#e0b64b]"}`} />
           </div>
           <div className="relative z-10 min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-5 text-[#86d9ae]">
-            <div className="mb-2 text-[#426078]">Python 3 / Pyodide 314.0.3</div>
+            <div className="mb-2 text-[#426078]">Python 3 / Pyodide 0.27.3</div>
             {output.length === 0 ? <span className="text-[#31475d]">&gt;&gt;&gt;</span> : output.map((line, index) => <div key={index} className={status === "error" ? "whitespace-pre-wrap text-[#ec7b7b]" : "whitespace-pre-wrap"}>{line}</div>)}
           </div>
           {output.length === 0 && (
@@ -213,7 +205,7 @@ export default function PythonMode() {
         <button type="button" onClick={() => setOutput([])} className="mode-softkey">SHELL</button>
         <button type="button" onClick={() => updateCode(`${activeFile.code}\nprint()`)} className="mode-softkey">CHAR</button>
         <button type="button" onClick={deleteFile} className="mode-softkey">DELETE</button>
-        <button type="button" onClick={runPython} className="mode-softkey mode-softkey-active">RUN</button>
+        <button type="button" onClick={status === "loading" || status === "running" ? stopPython : runPython} className="mode-softkey mode-softkey-active">{status === "loading" || status === "running" ? "STOP" : "RUN"}</button>
       </div>
     </div>
   );

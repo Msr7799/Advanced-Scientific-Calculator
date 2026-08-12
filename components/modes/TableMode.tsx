@@ -13,21 +13,18 @@ export default function TableMode() {
   const [xStart, setXStart] = useState("-5");
   const [xEnd, setXEnd] = useState("5");
   const [xStep, setXStep] = useState("1");
-  const [error, setError] = useState("");
-
-  const rows = useMemo<TableRow[]>(() => {
+  const { rows, error } = useMemo<{ rows: TableRow[]; error: string }>(() => {
     const start = parseFloat(xStart);
     const end   = parseFloat(xEnd);
     const step  = parseFloat(xStep);
 
     if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(step) || step <= 0) {
-      setError("Invalid range or step");
-      return [];
+      return { rows: [], error: "Invalid range or step" };
     }
-    if (end < start) { setError("End must be ≥ Start"); return []; }
-    if ((end - start) / step > 200) { setError("Too many rows (max 200)"); return []; }
+    if (end < start) return { rows: [], error: "End must be greater than or equal to Start" };
+    const rowCount = Math.floor((end - start) / step) + 1;
+    if (rowCount > 200) return { rows: [], error: "Too many rows (max 200)" };
 
-    setError("");
     const out: TableRow[] = [];
     for (let x = start; x <= end + 1e-9; x = Math.round((x + step) * 1e10) / 1e10) {
       let y: number | string;
@@ -40,11 +37,11 @@ export default function TableMode() {
       }
       out.push({ x: parseFloat(x.toPrecision(10)), y });
     }
-    return out;
+    return { rows: out, error: "" };
   }, [expression, xStart, xEnd, xStep]);
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "#0a1220" }}>
+    <div className="mode-responsive-split flex h-full overflow-hidden" style={{ background: "#0a1220" }}>
       {/* Controls */}
       <div
         className="w-56 shrink-0 flex flex-col gap-3 p-4 border-r overflow-y-auto panel-scroll"

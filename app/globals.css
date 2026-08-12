@@ -370,6 +370,28 @@ html, body {
 .mode-softkey:hover { background: #132943; color: #c8e5ff; }
 .mode-softkey-active { background: #285d91; color: #fff; }
 
+.expanded-display {
+  width: min(520px, 42vw);
+  min-width: 420px;
+}
+
+@media (max-width: 1180px) {
+  .desktop-info-panel { display: none; }
+  .expanded-display { width: min(520px, 48vw); min-width: 380px; }
+}
+
+@media (max-width: 820px) {
+  html, body { overflow: auto; }
+  .expanded-display {
+    position: fixed;
+    inset: 8px;
+    z-index: 80;
+    width: auto;
+    min-width: 0;
+    margin: 0 !important;
+  }
+}
+
 /* ══════════════════════════════════════════════════
    MENU SCREEN ICONS
 ══════════════════════════════════════════════════ */
@@ -495,4 +517,43 @@ button, input {
 
 input:focus {
   outline: none;
+}
+
+:where(button, input, textarea, select):focus-visible {
+  outline: 2px solid #58a9e8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .python-workspace,
+  .mode-responsive-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    overflow-y: auto;
+  }
+
+  .python-workspace > *,
+  .mode-responsive-grid > * {
+    min-height: 320px;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+
+  .mode-responsive-split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .mode-responsive-split > :first-child {
+    width: 100%;
+    max-height: 48%;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+
+  .mode-icon-button,
+  .mode-softkey,
+  .mode-tab,
+  .mode-segment {
+    min-height: 36px;
+  }
 }

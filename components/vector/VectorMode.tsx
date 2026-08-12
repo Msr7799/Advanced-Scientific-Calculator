@@ -51,9 +51,12 @@ export default function VectorMode() {
   }, [operation, vectors]);
 
   const updateElement = (name: VectorName, index: number, value: string) => {
+    if (value.trim() === "") return;
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return;
     setVectors((current) => ({
       ...current,
-      [name]: current[name].map((entry, entryIndex) => entryIndex === index ? Number(value) || 0 : entry),
+      [name]: current[name].map((entry, entryIndex) => entryIndex === index ? numericValue : entry),
     }));
   };
 
@@ -78,7 +81,7 @@ export default function VectorMode() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,0.9fr)_minmax(360px,1.1fr)]">
+      <div className="mode-responsive-grid grid min-h-0 flex-1 grid-cols-[minmax(300px,0.9fr)_minmax(360px,1.1fr)]">
         <div className="min-h-0 overflow-y-auto border-r border-[#20324a] p-4">
           <div className="mb-3 flex items-center gap-2">
             {(["A", "B"] as VectorName[]).map((name) => (

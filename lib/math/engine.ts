@@ -8,6 +8,22 @@ export interface EvaluateResult {
 
 const math = create(all, {});
 
+function factorial(value: number): number {
+  if (!Number.isInteger(value) || value < 0) throw new Error("Factorial requires a non-negative integer");
+  if (value > 170) throw new Error("Math overflow");
+  let result = 1;
+  for (let index = 2; index <= value; index++) result *= index;
+  return result;
+}
+
+function nthRoot(value: number, degree: number): number {
+  if (!Number.isInteger(degree) || degree === 0) throw new Error("Root degree must be a non-zero integer");
+  if (value < 0 && Math.abs(degree) % 2 === 0) throw new Error("Math ERROR");
+  const root = Math.pow(Math.abs(value), 1 / Math.abs(degree));
+  const signed = value < 0 ? -root : root;
+  return degree < 0 ? 1 / signed : signed;
+}
+
 // ─── Trig wrappers that respect angle mode ─────────────────────────────────
 function makeScope(angleMode: string, extra: Record<string, unknown> = {}) {
   const toRad = angleMode === "DEG"
@@ -43,7 +59,8 @@ function makeScope(angleMode: string, extra: Record<string, unknown> = {}) {
     // ── roots ─────────────────────────────────────────────────────────────
     sqrt: (x: number) => Math.sqrt(x),
     cbrt: (x: number) => Math.cbrt(x),
-    nthRoot: (x: number, n: number) => Math.pow(x, 1 / n),
+    nthRoot,
+    root: nthRoot,
 
     // ── logarithms ────────────────────────────────────────────────────────
     log:  (x: number, base?: number) => base !== undefined ? Math.log(x) / Math.log(base) : Math.log10(x),
@@ -53,6 +70,10 @@ function makeScope(angleMode: string, extra: Record<string, unknown> = {}) {
     // ── misc ──────────────────────────────────────────────────────────────
     abs:  (x: number) => Math.abs(x),
     frac: (numerator: number, denominator: number) => numerator / denominator,
+    factorial,
+    nCr: (n: number, r: number) => factorial(n) / (factorial(r) * factorial(n - r)),
+    nPr: (n: number, r: number) => factorial(n) / factorial(n - r),
+    convert: (value: number) => value,
     ceil: (x: number) => Math.ceil(x),
     floor:(x: number) => Math.floor(x),
     round:(x: number) => Math.round(x),
@@ -103,8 +124,9 @@ export function calculate(expression: string, context?: EvaluationContext): Eval
   const cleaned = normalizeExpression(expression);
   const angleMode = String(context?.angleMode || "DEG");
   const extra: Record<string, unknown> = {};
-  if (context?.ans !== undefined) extra.ans = context.ans;
-  if (context?.x   !== undefined) extra.x   = context.x;
+  for (const [name, value] of Object.entries(context ?? {})) {
+    if (name !== "angleMode" && typeof value === "number" && Number.isFinite(value)) extra[name] = value;
+  }
   if (context?.memory !== undefined) extra.M = context.memory;
 
   const scope = makeScope(angleMode, extra);

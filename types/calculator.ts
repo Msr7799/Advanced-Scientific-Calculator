@@ -22,6 +22,7 @@ export type CasioMode =
 export interface CalculatorState {
   expression: string;
   result: string;
+  isError: boolean;
   cursorPosition: number;
   memory: number;
   history: HistoryEntry[];

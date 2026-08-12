@@ -3,6 +3,7 @@ function validateVector(vector: Vector): void {
   if (vector.length === 0) {
     throw new Error("Vector cannot be empty");
   }
+  if (vector.some((value) => !Number.isFinite(value))) throw new Error("Vector values must be finite numbers");
 }
 export function dotProduct(a: Vector, b: Vector): number {
   validateVector(a);
@@ -39,7 +40,9 @@ export function normalize(vector: Vector): Vector {
   a: Vector,
   b: Vector,
 ): number {
-  const cosTheta = dotProduct(a, b) / (magnitude(a) * magnitude(b));
+  const denominator = magnitude(a) * magnitude(b);
+  if (denominator === 0) throw new Error("Angle is undefined for a zero vector");
+  const cosTheta = dotProduct(a, b) / denominator;
   const clamped = Math.min(1, Math.max(-1, cosTheta));
   return (Math.acos(clamped) * 180) / Math.PI;
 }

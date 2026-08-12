@@ -30,6 +30,7 @@ export function describe(data: number[]): DescriptiveStats {
   if (data.length === 0) {
     throw new Error("Dataset cannot be empty");
   }
+  if (data.some((value) => !Number.isFinite(value))) throw new Error("Dataset contains an invalid number");
   const sorted = [...data].sort((a, b) => a - b);
   const n = data.length;
   const sum = data.reduce((a, b) => a + b, 0);
@@ -102,9 +103,10 @@ export function linearRegression(xs: number[], ys: number[]): RegressionResult {
     syy += dy * dy;
   }
 
+  if (Math.abs(sxx) < Number.EPSILON) throw new Error("Regression requires at least two distinct x values");
   const slope = sxy / sxx;
   const intercept = meanY - slope * meanX;
-  const r = sxy / Math.sqrt(sxx * syy);
+  const r = syy === 0 ? 0 : sxy / Math.sqrt(sxx * syy);
   const r2 = r * r;
 
   return {
@@ -162,6 +164,7 @@ export function quadraticRegression(
     m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 
   const D = det3(A);
+  if (Math.abs(D) < Number.EPSILON) throw new Error("Quadratic regression needs distinct x values");
   const replaceCol = (m: number[][], col: number, vec: number[]) =>
     m.map((row, i) => row.map((v, j) => (j === col ? vec[i] : v)));
 

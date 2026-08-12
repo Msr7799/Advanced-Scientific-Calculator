@@ -5,7 +5,9 @@ import jStat from "jstat";
 
 // ─── Parsing helpers ─────────────────────────────────────────────────────────
 function parseSeries(value: string): number[] {
-  return value.trim().split(/[\s,;]+/).filter(Boolean).map(Number).filter(Number.isFinite);
+  const values = value.trim().split(/[\s,;]+/).filter(Boolean).map(Number);
+  if (values.some((entry) => !Number.isFinite(entry))) throw new Error("All entries must be valid numbers");
+  return values;
 }
 
 // ─── Descriptive statistics using jStat ──────────────────────────────────────
@@ -30,11 +32,11 @@ function describe(data: number[]) {
 
 function linearRegression(xs: number[], ys: number[]) {
   if (xs.length !== ys.length || xs.length < 2) throw new Error("X and Y must have equal length ≥ 2");
-  const n = xs.length;
   const xMean = jStat.mean(xs);
   const yMean = jStat.mean(ys);
   const cov = jStat.covariance(xs, ys);
   const varX = jStat.variance(xs, true);
+  if (!Number.isFinite(varX) || Math.abs(varX) < Number.EPSILON) throw new Error("Regression requires distinct X values");
   const slope = cov / varX;
   const intercept = yMean - slope * xMean;
   const r = jStat.corrcoeff(xs, ys);
@@ -51,7 +53,7 @@ function Histogram({ data, color = "#4488e0" }: { data: number[]; color?: string
   if (data.length < 2) return null;
   const bins = 8;
   const min = Math.min(...data), max = Math.max(...data);
-  const binWidth = (max - min) / bins;
+  const binWidth = (max - min) / bins || 1;
   const counts = Array(bins).fill(0);
   for (const v of data) {
     const idx = Math.min(Math.floor((v - min) / binWidth), bins - 1);
@@ -125,9 +127,9 @@ export default function StatisticsMode() {
   const [ys, setYs] = useState("2.1 3.9 6.2 8.0 9.8 11.9");
   const [tab, setTab] = useState<"1var" | "regression">("1var");
 
-  const parsed = useMemo(() => parseSeries(dataset), [dataset]);
-  const parsedXs = useMemo(() => parseSeries(xs), [xs]);
-  const parsedYs = useMemo(() => parseSeries(ys), [ys]);
+  const parsed = useMemo(() => { try { return parseSeries(dataset); } catch { return []; } }, [dataset]);
+  const parsedXs = useMemo(() => { try { return parseSeries(xs); } catch { return []; } }, [xs]);
+  const parsedYs = useMemo(() => { try { return parseSeries(ys); } catch { return []; } }, [ys]);
 
   const summary = useMemo(() => {
     try { return describe(parsed); } catch { return null; }
@@ -157,7 +159,7 @@ export default function StatisticsMode() {
   const bg = "#0a1220", border = "#1a2840", card = "#080e18";
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: bg }}>
+    <div className="mode-responsive-split flex h-full overflow-hidden" style={{ background: bg }}>
       {/* ── Left: inputs + tabs ─────────────────────── */}
       <div className="w-56 shrink-0 flex flex-col border-r overflow-hidden" style={{ borderColor: border, background: card }}>
         {/* Tabs */}
