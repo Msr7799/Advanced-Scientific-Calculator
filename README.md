@@ -1,7 +1,7 @@
 <h1 align="center">Advanced Casio-Style Calculator</h1>
 
 <p align="center">
-  <img src="public/the-calculator.png" alt="Advanced Casio-style graphing calculator interface" width="200" />
+  <img src="public/the-calculator.png" alt="Advanced Casio-style graphing calculator interface" width="1200" />
 </p>
 
 <p align="center">
