@@ -1,15 +1,6 @@
 export type AppMode =
-  | "calculator"
-  | "graph"
-  | "matrix"
-  | "vector"
-  | "equation"
-  | "statistics"
-  | "probability"
-  | "table"
-  | "converter"
-  | "constants"
-  | "programming";
+  | "calculator" | "graph" | "matrix" | "vector" | "equation"
+  | "statistics" | "probability" | "table" | "converter" | "constants" | "programming" | "calculus";
 
 export interface VariableEntry {
   id: string;

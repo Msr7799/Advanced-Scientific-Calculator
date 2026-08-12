@@ -166,17 +166,156 @@ export function quadraticRegression(xs: number[], ys: number[]): { a: number; b:
   };
 }
 
+/** Standard normal CDF, Φ(z), via Abramowitz-Stegun approximation (max error ~7.5e-8). */
+export function standardNormalCdf(z: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const tail = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z >= 0 ? 1 - tail : tail;
+}
+
+/** Standard normal PDF, φ(z). */
+export function standardNormalPdf(z: number): number {
+  return (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-(z * z) / 2);
+}
+
+/** z = (x - μ) / σ */
 export function zScore(x: number, mean: number, stdDev: number): number {
+  if (stdDev === 0) throw new Error("Standard deviation cannot be zero");
   return (x - mean) / stdDev;
 }
 
-/** Standard normal CDF via Abramowitz-Stegun approximation. */
-export function normalCdf(z: number): number {
-  const t = 1 / (1 + 0.2316419 * Math.abs(z));
-  const d = 0.3989423 * Math.exp((-z * z) / 2);
-  let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  if (z > 0) prob = 1 - prob;
-  return 1 - prob;
+/** P(X ≤ x) for X ~ Normal(mean, stdDev). */
+export function normalCdf(x: number, mean?: number, stdDev?: number): number {
+  if (mean === undefined || stdDev === undefined) {
+    return standardNormalCdf(x);
+  }
+  return standardNormalCdf(zScore(x, mean, stdDev));
+}
+
+/** P(lower ≤ X ≤ upper) for X ~ Normal(mean, stdDev). */
+export function normalRangeProbability(lower: number, upper: number, mean: number, stdDev: number): number {
+  return normalCdf(upper, mean, stdDev) - normalCdf(lower, mean, stdDev);
+}
+
+/** Inverse standard normal CDF (quantile function) via Acklam's rational approximation. */
+export function inverseStandardNormalCdf(p: number): number {
+  if (p <= 0 || p >= 1) {
+    throw new Error("p must be strictly between 0 and 1");
+  }
+
+  const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
+  const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+  const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+
+  const pLow = 0.02425;
+  const pHigh = 1 - pLow;
+  let q: number;
+  let r: number;
+
+  if (p < pLow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+
+  if (p <= pHigh) {
+    q = p - 0.5;
+    r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+
+  q = Math.sqrt(-2 * Math.log(1 - p));
+  return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+    ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+}
+
+/** P(A|B) = P(A∩B) / P(B) */
+export function conditionalProbability(pAIntersectB: number, pB: number): number {
+  if (pB === 0) throw new Error("P(B) cannot be zero");
+  if (pAIntersectB > pB + 1e-9) {
+    throw new Error("P(A∩B) cannot exceed P(B)");
+  }
+  return pAIntersectB / pB;
+}
+
+/** Bayes' theorem: P(A|B) = P(B|A) * P(A) / P(B) */
+export function bayesTheorem(pBGivenA: number, pA: number, pB: number): number {
+  if (pB === 0) throw new Error("P(B) cannot be zero");
+  return (pBGivenA * pA) / pB;
+}
+
+function factorial(n: number): number {
+  if (n < 0 || !Number.isInteger(n)) throw new Error("Factorial requires a non-negative integer");
+  let result = 1;
+  for (let i = 2; i <= n; i += 1) result *= i;
+  return result;
+}
+
+export function combination(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  return factorial(n) / (factorial(k) * factorial(n - k));
+}
+
+export function permutation(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  return factorial(n) / factorial(n - k);
+}
+
+/** P(X = k) for X ~ Binomial(n, p) */
+export function binomialPmf(n: number, p: number, k: number): number {
+  if (p < 0 || p > 1) throw new Error("p must be in [0, 1]");
+  return combination(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+}
+
+/** P(X ≤ k) for X ~ Binomial(n, p) */
+export function binomialCdf(n: number, p: number, k: number): number {
+  let sum = 0;
+  for (let i = 0; i <= k; i += 1) sum += binomialPmf(n, p, i);
+  return sum;
+}
+
+/** P(X = k) for X ~ Poisson(λ) */
+export function poissonPmf(lambda: number, k: number): number {
+  if (lambda < 0) throw new Error("lambda must be non-negative");
+  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
+}
+
+/** P(X ≤ k) for X ~ Poisson(λ) */
+export function poissonCdf(lambda: number, k: number): number {
+  let sum = 0;
+  for (let i = 0; i <= k; i += 1) sum += poissonPmf(lambda, i);
+  return sum;
+}
+
+export interface HypothesisTestResult {
+  testStatistic: number;
+  pValue: number;
+  significant: boolean;
+}
+
+/** One-sample z-test for a population mean against a hypothesized value. */
+export function oneSampleZTest(
+  sampleMean: number,
+  hypothesizedMean: number,
+  populationStdDev: number,
+  sampleSize: number,
+  alpha = 0.05,
+  tailed: "two" | "left" | "right" = "two"
+): HypothesisTestResult {
+  const standardError = populationStdDev / Math.sqrt(sampleSize);
+  const z = (sampleMean - hypothesizedMean) / standardError;
+  let pValue: number;
+  if (tailed === "two") {
+    pValue = 2 * (1 - standardNormalCdf(Math.abs(z)));
+  } else if (tailed === "left") {
+    pValue = standardNormalCdf(z);
+  } else {
+    pValue = 1 - standardNormalCdf(z);
+  }
+  return { testStatistic: z, pValue, significant: pValue < alpha };
 }
 
 export function histogramBins(data: number[], binCount: number): { start: number; end: number; count: number }[] {

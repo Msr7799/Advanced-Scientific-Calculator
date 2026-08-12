@@ -1,8 +1,9 @@
 "use client";
-
 import { useCallback } from "react";
-import { useCalculatorDispatch, useCalculatorState } from "@/lib/state/calculatorState";
-
+import {
+  useCalculatorDispatch,
+  useCalculatorState,
+} from "@/lib/state/calculatorState";
 const buttons = [
   [
     { label: "MC", action: "mc" },
@@ -61,16 +62,19 @@ const buttons = [
     { label: "=", action: "enter" },
   ],
 ];
-
-export default function CalculatorKeyboard({ onEvaluate }: { onEvaluate: () => void }) {
+export default function CalculatorKeyboard({
+  onEvaluate,
+}: {
+  onEvaluate: () => void;
+}) {
   const dispatch = useCalculatorDispatch();
   const state = useCalculatorState();
-
   const handleClick = useCallback(
     (action: string) => {
       const numericValue = Number(state.result);
-      const currentValue = Number.isFinite(numericValue) ? numericValue : state.lastAnswer;
-
+      const currentValue = Number.isFinite(numericValue)
+        ? numericValue
+        : state.lastAnswer;
       switch (action) {
         case "clear":
           dispatch({ type: "CLEAR" });
@@ -103,13 +107,14 @@ export default function CalculatorKeyboard({ onEvaluate }: { onEvaluate: () => v
           dispatch({ type: "APPEND_TOKEN", payload: action });
       }
     },
-    [dispatch, onEvaluate, state.lastAnswer, state.memory, state.result]
+    [dispatch, onEvaluate, state.lastAnswer, state.memory, state.result],
   );
-
   return (
     <div className="grid gap-3 rounded-3xl bg-slate-950/90 p-2 sm:p-3">
+      {" "}
       {buttons.map((row, rowIndex) => (
         <div key={`row-${rowIndex}`} className="grid grid-cols-5 gap-3">
+          {" "}
           {row.map((button) => (
             <button
               key={button.label}
@@ -118,11 +123,12 @@ export default function CalculatorKeyboard({ onEvaluate }: { onEvaluate: () => v
               onClick={() => handleClick(button.action)}
               aria-label={button.label}
             >
-              {button.label}
+              {" "}
+              {button.label}{" "}
             </button>
-          ))}
+          ))}{" "}
         </div>
-      ))}
+      ))}{" "}
     </div>
   );
 }

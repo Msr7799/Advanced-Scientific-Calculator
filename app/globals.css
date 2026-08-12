@@ -4,7 +4,7 @@
   color-scheme: dark;
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -15,45 +15,305 @@ html, body {
   width: 100%;
   overflow: hidden;
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  background: #080b12;
+  background: #0c0e14;
   color: #e2e8f0;
 }
 
-/* ── Casio body ──────────────────────────────── */
+/* ══════════════════════════════════════════════════
+   CASIO BODY — Dark graphite plastic texture
+══════════════════════════════════════════════════ */
 .casio-body {
-  background: linear-gradient(
-    175deg,
-    #1c2028 0%,
-    #14171e 30%,
-    #0f1218 60%,
-    #0c0f14 100%
-  );
-}
-
-/* ── LCD glare ───────────────────────────────── */
-.casio-lcd {
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(255,255,255,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 90%, rgba(0,0,0,0.3) 0%, transparent 50%),
+    linear-gradient(175deg, #232830 0%, #1a1e26 25%, #14171e 60%, #0f1218 100%);
   position: relative;
 }
+
+/* Subtle plastic grain texture */
+.casio-body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='4' height='4' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* ══════════════════════════════════════════════════
+   CASIO LCD — Color screen with scanlines
+══════════════════════════════════════════════════ */
+.casio-lcd {
+  position: relative;
+  background: linear-gradient(180deg, #1a3c6a 0%, #0e2340 100%);
+  border: 2px solid #0a1929;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.06),
+    inset 0 2px 6px rgba(0,0,0,0.5),
+    0 0 20px rgba(20, 60, 120, 0.15);
+}
+
+/* LCD pixel scanlines */
 .casio-lcd::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%);
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.07) 2px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
   pointer-events: none;
   border-radius: inherit;
+  z-index: 10;
 }
 
-/* ── Button press animation ──────────────────── */
+/* LCD glass glare */
+.casio-lcd-glare::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* ══════════════════════════════════════════════════
+   BUTTON STYLES
+══════════════════════════════════════════════════ */
 .calc-btn {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.08s, transform 0.08s;
 }
 .calc-btn:active {
-  filter: brightness(0.9);
-  transform: translateY(2px);
+  filter: brightness(0.85);
+  transform: translateY(2px) scale(0.97);
 }
 
-/* ── Blinking cursor ─────────────────────────── */
+/* Numeric keys — white/cream */
+.btn-numeric {
+  background: linear-gradient(175deg, #e8e4dc 0%, #d0ccc4 100%);
+  border: 1px solid #b0aba3;
+  color: #1a1a1a;
+  font-weight: 700;
+  box-shadow:
+    0 4px 0 #8a8580,
+    0 5px 4px rgba(0,0,0,0.25);
+}
+.btn-numeric:active {
+  box-shadow: 0 1px 0 #8a8580, 0 2px 2px rgba(0,0,0,0.2);
+}
+
+/* Function keys — dark graphite */
+.btn-fn {
+  background: linear-gradient(175deg, #2a3040 0%, #1c2230 100%);
+  border: 1px solid #3a4050;
+  color: #ccd6e8;
+  font-weight: 600;
+  box-shadow:
+    0 4px 0 #0c1020,
+    0 5px 4px rgba(0,0,0,0.3);
+}
+.btn-fn:active {
+  box-shadow: 0 1px 0 #0c1020, 0 2px 2px rgba(0,0,0,0.25);
+}
+
+/* SHIFT key — yellow/gold */
+.btn-shift {
+  background: linear-gradient(175deg, #d4b030 0%, #9f7c18 100%);
+  border: 1px solid #7a5e10;
+  color: #1a1000;
+  font-weight: 800;
+  box-shadow:
+    0 4px 0 #5a4410,
+    0 5px 4px rgba(0,0,0,0.3);
+}
+
+/* ALPHA key — red */
+.btn-alpha {
+  background: linear-gradient(175deg, #c83838 0%, #901818 100%);
+  border: 1px solid #701010;
+  color: #fff;
+  font-weight: 800;
+  box-shadow:
+    0 4px 0 #501010,
+    0 5px 4px rgba(0,0,0,0.3);
+}
+
+/* DEL key — blue */
+.btn-del {
+  background: linear-gradient(175deg, #2060c8 0%, #143e90 100%);
+  border: 1px solid #0e2e70;
+  color: #fff;
+  font-weight: 700;
+  box-shadow:
+    0 4px 0 #0a2060,
+    0 5px 4px rgba(0,0,0,0.3);
+}
+
+/* AC/ON key — deep red */
+.btn-ac {
+  background: linear-gradient(175deg, #d04050 0%, #901828 100%);
+  border: 1px solid #701020;
+  color: #fff;
+  font-weight: 700;
+  box-shadow:
+    0 4px 0 #500e18,
+    0 5px 4px rgba(0,0,0,0.3);
+}
+
+/* EXE/Enter key — bright blue */
+.btn-exe {
+  background: linear-gradient(175deg, #3a8ce8 0%, #1a58b0 100%);
+  border: 1px solid #0e3a80;
+  color: #fff;
+  font-weight: 800;
+  box-shadow:
+    0 4px 0 #0a2860,
+    0 5px 4px rgba(0,0,0,0.35);
+}
+
+/* D-pad — metallic silver */
+.dpad-ring {
+  background: radial-gradient(circle at 50% 30%, #6a7080 0%, #3a4050 50%, #2a3040 100%);
+  border: 2px solid #1a2030;
+  box-shadow:
+    0 4px 8px rgba(0,0,0,0.5),
+    inset 0 1px 2px rgba(255,255,255,0.15);
+}
+
+.dpad-btn {
+  background: linear-gradient(175deg, #5a6070 0%, #3a4050 100%);
+  border: 1px solid #2a3040;
+  color: #d0d8e8;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+  transition: filter 0.08s, transform 0.08s;
+}
+.dpad-btn:active {
+  filter: brightness(0.8);
+  transform: scale(0.95);
+}
+
+.dpad-center {
+  background: radial-gradient(circle at 40% 35%, #7a8090 0%, #4a5060 50%, #3a4050 100%);
+  border: 1px solid #2a3040;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.15),
+    0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* ══════════════════════════════════════════════════
+   F-KEY BAR
+══════════════════════════════════════════════════ */
+.fkey-bar {
+  background: linear-gradient(180deg, #1a2a4a 0%, #0e1830 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.fkey-label {
+  color: #70a8e0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════════════
+   MENU SCREEN ICONS
+══════════════════════════════════════════════════ */
+.menu-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  background: rgba(255,255,255,0.04);
+}
+
+.menu-icon:hover {
+  background: rgba(40, 100, 200, 0.2);
+  border-color: rgba(80, 140, 220, 0.5);
+}
+
+.menu-icon.active {
+  background: rgba(30, 80, 180, 0.35);
+  border-color: rgba(80, 140, 220, 0.8);
+  box-shadow: 0 0 0 1px rgba(80, 140, 220, 0.4), 0 0 8px rgba(60, 120, 220, 0.2);
+}
+
+/* ══════════════════════════════════════════════════
+   STATUS BAR
+══════════════════════════════════════════════════ */
+.status-bar {
+  background: rgba(10, 20, 40, 0.9);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 10px;
+  font-family: var(--font-jetbrains-mono), monospace;
+  letter-spacing: 0.04em;
+}
+
+.status-indicator {
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.status-indicator.shift-on {
+  background: #c8900c;
+  color: #000;
+}
+
+.status-indicator.alpha-on {
+  background: #a01818;
+  color: #fff;
+}
+
+.status-indicator.off {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.3);
+}
+
+/* ══════════════════════════════════════════════════
+   SCROLLBAR
+══════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(100,120,160,0.2);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100,120,160,0.35);
+}
+.panel-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,120,160,0.2) transparent;
+}
+
+/* ══════════════════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════════════════ */
 @keyframes cursor-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
@@ -62,29 +322,37 @@ html, body {
   animation: cursor-blink 1.06s step-end infinite;
 }
 
-/* ── Smooth scrollbar ────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: rgba(100,120,160,0.25);
-  border-radius: 99px;
+@keyframes lcd-flicker {
+  0%, 100% { opacity: 1; }
+  97% { opacity: 0.98; }
+  98% { opacity: 0.96; }
+  99% { opacity: 0.99; }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(100,120,160,0.4);
-}
-.panel-scroll {
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100,120,160,0.25) transparent;
+.lcd-flicker {
+  animation: lcd-flicker 4s ease-in-out infinite;
 }
 
-/* ── Global selection ────────────────────────── */
+@keyframes power-on {
+  0% { opacity: 0; filter: brightness(3); }
+  30% { opacity: 1; filter: brightness(1.2); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+.power-on {
+  animation: power-on 0.4s ease-out forwards;
+}
+
+/* ══════════════════════════════════════════════════
+   SELECTION & FORM RESETS
+══════════════════════════════════════════════════ */
 ::selection {
-  background: rgba(56,189,248,0.25);
+  background: rgba(56,189,248,0.22);
 }
 
 button, input {
   font: inherit;
+  outline: none;
+}
+
+input:focus {
   outline: none;
 }

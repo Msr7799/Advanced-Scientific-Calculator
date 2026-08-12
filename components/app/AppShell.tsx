@@ -1,278 +1,663 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AppProvider } from "@/lib/state/appState";
+import { CalculatorProvider, useCalculatorState } from "@/lib/state/calculatorState";
+import { useCasioStore } from "@/store/calculatorStore";
 import CalculatorShell from "@/components/calculator/CalculatorShell";
-import FunctionCatalogPanel from "@/components/catalog/FunctionCatalogPanel";
-import ConstantsLibraryPanel from "@/components/constants/ConstantsLibraryPanel";
+import CasioScreen from "@/components/display/CasioScreen";
 import GraphMode from "@/components/graph/GraphMode";
 import MatrixMode from "@/components/matrix/MatrixMode";
 import VectorMode from "@/components/vector/VectorMode";
 import StatisticsMode from "@/components/statistics/StatisticsMode";
 import EquationSolver from "@/components/equationlib/equation/EquationSolver";
+import TableMode from "@/components/modes/TableMode";
+import PythonMode from "@/components/modes/PythonMode";
+import type { CasioMode } from "@/types/calculator";
 
-import { CalculatorProvider, useCalculatorState, useCalculatorDispatch } from "@/lib/state/calculatorState";
+// ─── Mode meta ────────────────────────────────────────────────────────────────
+const MODE_META: Record<CasioMode, { label: string; color: string }> = {
+  MENU:       { label: "MENU",    color: "#5588ff" },
+  RUN_MAT:    { label: "RUN-MAT",color: "#5588ff" },
+  GRAPH:      { label: "GRAPH",  color: "#ff9944" },
+  TABLE:      { label: "TABLE",  color: "#55ccff" },
+  EQUATION:   { label: "EQN",    color: "#ff66aa" },
+  MATRIX:     { label: "MATRIX", color: "#cc88ff" },
+  VECTOR:     { label: "VECTOR", color: "#ffcc44" },
+  STATISTICS: { label: "STAT",   color: "#44cc88" },
+  PYTHON:     { label: "PYTHON", color: "#44ddaa" },
+};
 
-// ─── App mode definitions ────────────────────────────────────────────────────
-type AppModeId = "calculator" | "graph" | "matrix" | "vector" | "equation" | "statistics";
-
-const APPS: { id: AppModeId; label: string; icon: string }[] = [
-  { id: "calculator", label: "Calculator", icon: "⊞" },
-  { id: "graph", label: "Graph", icon: "∿" },
-  { id: "matrix", label: "Matrix", icon: "⊡" },
-  { id: "vector", label: "Vector", icon: "⊿" },
-  { id: "equation", label: "Equation", icon: "=" },
-  { id: "statistics", label: "Statistics", icon: "Σ" },
-];
-
-// ─── Right panel tab type ────────────────────────────────────────────────────
-type RightTab = "CATALOG" | "CONSTANTS" | "DEG";
-
-// ─── Sidebar apps grid ───────────────────────────────────────────────────────
-function AppsGrid({ currentMode, onSelect }: { currentMode: AppModeId; onSelect: (mode: AppModeId) => void }) {
+// ─── Panel header (non-calc modes) ───────────────────────────────────────────
+function ModeHeader({ mode, onBack }: { mode: CasioMode; onBack: () => void }) {
+  const meta = MODE_META[mode] ?? MODE_META.RUN_MAT;
   return (
-    <aside className="flex flex-col h-full bg-[#0d1017] border-r border-slate-800/60" style={{ width: 120 }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/60">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Apps</span>
-        <button className="text-slate-500 hover:text-slate-300 transition text-xs">≡</button>
-      </div>
-
-      {/* Grid 2-col */}
-      <div className="flex-1 overflow-y-auto panel-scroll p-2">
-        <div className="grid grid-cols-2 gap-1.5">
-          {APPS.map((app) => {
-            const active = currentMode === app.id;
-            return (
-              <button
-                key={app.id}
-                type="button"
-                onClick={() => onSelect(app.id)}
-                className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all calc-btn
-                  ${active
-                    ? "bg-sky-500/20 border border-sky-500/50 text-sky-300"
-                    : "bg-slate-900/60 border border-slate-700/40 text-slate-300 hover:bg-slate-800/70 hover:text-white"
-                  }`}
-              >
-                <span className="text-lg leading-none">{app.icon}</span>
-                <span className="text-[9px] font-medium leading-tight text-center">{app.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-// ─── Right panel with tabs ───────────────────────────────────────────────────
-function RightPanel() {
-  const [activeTab, setActiveTab] = useState<RightTab>("CATALOG");
-  const calcState = useCalculatorState();
-  const calcDispatch = useCalculatorDispatch();
-
-  const angleMode = calcState.angleMode || "DEG";
-
-  return (
-    <aside
-      className="flex flex-col h-full bg-[#0b0e15] border-l border-slate-800/60"
-      style={{ width: 310 }}
+    <div
+      className="flex items-center gap-3 px-5 py-3 border-b shrink-0"
+      style={{ borderColor: meta.color + "22", background: `${meta.color}08` }}
     >
-      {/* Top status bar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-800/60 bg-[#0d1017] text-[10px] text-slate-400 shrink-0">
-        <span className="font-mono font-semibold text-slate-200">{angleMode}</span>
-        <span className="flex-1 text-center text-[9px] tracking-widest text-slate-500">Natural Display D</span>
-        {/* battery */}
-        <span className="text-slate-400">🔋 98%</span>
-        <span className="bg-slate-700 text-slate-200 px-1 rounded text-[9px] font-bold">SHIFT</span>
-        <span className="bg-slate-700 text-slate-200 px-1 rounded text-[9px] font-bold">S</span>
-        <span className="bg-slate-700 text-slate-200 px-1 rounded text-[9px] font-bold">A</span>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold tracking-wider transition-all cursor-pointer"
+        style={{
+          fontSize: 13,
+          background: `${meta.color}18`,
+          color: meta.color,
+          border: `1px solid ${meta.color}35`,
+        }}
+      >
+        ← MENU
+      </button>
+      <div className="font-bold tracking-[0.2em]" style={{ color: meta.color, fontSize: 14 }}>
+        {meta.label}
       </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b border-slate-800/60 shrink-0">
-        {(["CATALOG", "CONSTANTS", "DEG"] as RightTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => {
-              setActiveTab(tab);
-              if (tab === "DEG") {
-                const nextMode = angleMode === "DEG" ? "RAD" : angleMode === "RAD" ? "GRD" : "DEG";
-                calcDispatch({ type: "SET_ANGLE_MODE", payload: nextMode });
-              }
-            }}
-            className={`flex-1 py-2 text-[11px] font-semibold tracking-wider transition-all
-              ${activeTab === tab
-                ? "text-white border-b-2 border-sky-400 bg-slate-800/40"
-                : "text-slate-500 hover:text-slate-300"
-              }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto panel-scroll p-2 space-y-2">
-        {activeTab === "CATALOG" && <FunctionCatalogPanel />}
-        {activeTab === "CONSTANTS" && <ConstantsLibraryPanel />}
-
-        {activeTab === "DEG" && (
-          <div className="space-y-2">
-            <div className="text-center py-4 text-slate-400 text-sm">
-              Angle Mode: <span className="text-white font-bold">{angleMode}</span>
-            </div>
-            {(["DEG", "RAD", "GRD"] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => calcDispatch({ type: "SET_ANGLE_MODE", payload: m })}
-                className={`w-full py-2 rounded-lg text-sm font-semibold transition
-                  ${angleMode === m ? "bg-sky-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* History section */}
-      <div className="border-t border-slate-800/60 flex-shrink-0" style={{ maxHeight: 240 }}>
-        <div className="flex items-center justify-between px-3 py-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">History</span>
-          <button className="text-slate-500 hover:text-slate-300 transition text-xs">≡</button>
-        </div>
-        <div className="overflow-y-auto panel-scroll px-2 pb-2 space-y-1.5" style={{ maxHeight: 190 }}>
-          {calcState.history.length === 0 ? (
-            <div className="text-[11px] text-slate-500 px-2 py-3 text-center">No history yet</div>
-          ) : (
-            calcState.history.map((entry) => (
-              <div key={entry.id} className="rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
-                <div className="text-[11px] font-mono text-sky-300">{entry.expression}</div>
-                <div className="text-right text-[12px] font-semibold text-white mt-0.5">{entry.result}</div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-// ─── Main layout ─────────────────────────────────────────────────────────────
-function AppShellContent() {
-  const [currentMode, setCurrentMode] = useState<AppModeId>("calculator");
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [size, setSize] = useState({ width: 420, height: 760 });
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const resizeRef = useRef<{ startX: number; startY: number; origWidth: number; origHeight: number } | null>(null);
-
-  const handleDragStart = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    dragRef.current = { startX: event.clientX, startY: event.clientY, origX: position.x, origY: position.y };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, [position]);
-
-  const handleResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    resizeRef.current = { startX: event.clientX, startY: event.clientY, origWidth: size.width, origHeight: size.height };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.stopPropagation();
-  }, [size]);
-
-  useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      if (dragRef.current) {
-        const dx = event.clientX - dragRef.current.startX;
-        const dy = event.clientY - dragRef.current.startY;
-        setPosition({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
-      }
-      if (resizeRef.current) {
-        const dx = event.clientX - resizeRef.current.startX;
-        const dy = event.clientY - resizeRef.current.startY;
-        setSize({
-          width: Math.max(320, resizeRef.current.origWidth + dx),
-          height: Math.max(520, resizeRef.current.origHeight + dy),
-        });
-      }
-    };
-
-    const handlePointerUp = () => {
-      dragRef.current = null;
-      resizeRef.current = null;
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, []);
-
-  const isCalculatorMode = currentMode === "calculator";
-
-  return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0d14]">
-      {/* Left sidebar */}
-      <AppsGrid currentMode={currentMode} onSelect={setCurrentMode} />
-
-      {/* Center: mode content */}
-      <main className="relative flex-1 flex items-center justify-center overflow-hidden bg-[#0a0d14] p-10">
-        {isCalculatorMode ? (
-          <div
-            className="absolute rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl"
-            style={{
-              left: position.x,
-              top: position.y,
-              width: size.width + 24,
-              height: size.height + 24,
-              padding: 12,
-              minWidth: 360,
-              minHeight: 560,
-            }}
-          >
-            <div
-              className="mb-3 flex cursor-grab items-center justify-between rounded-3xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-300"
-              onPointerDown={handleDragStart}
-            >
-              <span className="font-semibold">Move / Resize Calculator</span>
-              <span className="text-xs text-slate-400">Drag here</span>
-            </div>
-
-            <div className="relative h-full w-full">
-              <CalculatorShell width={size.width} height={size.height} />
-              <div
-                className="absolute bottom-2 right-2 flex h-5 w-5 cursor-se-resize items-center justify-center rounded-full bg-slate-800/90 text-[10px] text-slate-200"
-                onPointerDown={handleResizeStart}
-              >
-                ↘
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="absolute inset-4 overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl">
-            {currentMode === "graph" && <GraphMode />}
-            {currentMode === "matrix" && <MatrixMode />}
-            {currentMode === "vector" && <VectorMode />}
-            {currentMode === "statistics" && <StatisticsMode />}
-            {currentMode === "equation" && (
-              <div className="h-full overflow-y-auto panel-scroll p-4">
-                <EquationSolver />
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Right panel — only meaningful alongside the calculator */}
-      {isCalculatorMode && <RightPanel />}
     </div>
   );
 }
 
+// ─── History sidebar (non-calc modes) ────────────────────────────────────────
+function HistorySidebar() {
+  const { history, removeHistory, pinHistory } = useCasioStore();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex flex-col items-center justify-center gap-1 w-10 h-full py-3 font-bold tracking-wider text-[#4a6080] hover:text-[#7aa0c0] transition-colors cursor-pointer"
+        style={{ borderLeft: "1px solid #1a2030", fontSize: 11 }}
+        title="History"
+      >
+        <span style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)", letterSpacing: "0.2em" }}>
+          HISTORY
+        </span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 240, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute right-10 top-0 bottom-0 overflow-hidden"
+            style={{ background: "#0d1520", borderLeft: "1px solid #1a2a40", zIndex: 50 }}
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-[#1a2a40]">
+                <span className="font-bold tracking-[0.25em]" style={{ color: "#5a7aaa", fontSize: 12 }}>HISTORY</span>
+                <button onClick={() => setOpen(false)} className="text-[#304050] hover:text-[#608090] cursor-pointer" style={{ fontSize: 14 }}>✕</button>
+              </div>
+              <div className="flex-1 overflow-y-auto panel-scroll p-4 space-y-2">
+                {history.length === 0 ? (
+                  <div className="text-center py-6" style={{ color: "#304050", fontSize: 12 }}>No history yet</div>
+                ) : (
+                  history.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="rounded-lg border px-4 py-3 group"
+                      style={{ borderColor: "#1a2a40", background: "#0a1220" }}
+                    >
+                      <div className="font-mono truncate" style={{ color: "#5a9ac0", fontSize: 12 }}>{entry.expression}</div>
+                      <div className="font-mono font-bold text-right mt-1" style={{ color: "#fff", fontSize: 15 }}>{entry.result}</div>
+                      <div className="flex gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => pinHistory(entry.id)} className="cursor-pointer hover:text-[#70b0b0] transition-colors" style={{ color: "#508080", fontSize: 11 }}>
+                          {entry.pinned ? "★" : "☆"}
+                        </button>
+                        <button onClick={() => removeHistory(entry.id)} className="cursor-pointer hover:text-[#c07070] transition-colors" style={{ color: "#805050", fontSize: 11 }}>
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Mode content panel ───────────────────────────────────────────────────────
+function ModePanel({ mode }: { mode: CasioMode }) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={mode}
+        className="flex-1 overflow-hidden"
+        initial={{ opacity: 0, x: 16 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -16 }}
+        transition={{ duration: 0.18 }}
+      >
+        {mode === "GRAPH"      && <GraphMode />}
+        {mode === "MATRIX"     && <MatrixMode />}
+        {mode === "VECTOR"     && <VectorMode />}
+        {mode === "STATISTICS" && <StatisticsMode />}
+        {mode === "TABLE"      && <TableMode />}
+        {mode === "PYTHON"     && <PythonMode />}
+        {mode === "EQUATION"   && (
+          <div className="h-full overflow-y-auto panel-scroll p-5">
+            <EquationSolver />
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Left Zoom Panel ──────────────────────────────────────────────────────────
+function ZoomPanel({
+  scale,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  showExpanded,
+  onToggleExpanded,
+}: {
+  scale: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+  showExpanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-3 py-5 px-2 shrink-0"
+      style={{
+        width: 52,
+        background: "rgba(8,14,24,0.75)",
+        borderRight: "1px solid #1a2840",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      {/* Expand display toggle */}
+      <button
+        onClick={onToggleExpanded}
+        className="w-9 h-9 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer hover:brightness-125 active:scale-90"
+        style={{
+          background: showExpanded ? "#1a3a60" : "#0d1828",
+          color: showExpanded ? "#80c8ff" : "#3a6090",
+          border: `1px solid ${showExpanded ? "#2a5898" : "#1e3050"}`,
+          fontSize: 14,
+          boxShadow: showExpanded ? "0 0 8px rgba(80,160,255,0.2)" : undefined,
+        }}
+        title={showExpanded ? "Hide expanded display" : "Show expanded display"}
+      >
+        ⛶
+      </button>
+
+      {/* Divider */}
+      <div className="w-6 h-px" style={{ background: "#1a2840" }} />
+
+      {/* Zoom In */}
+      <button
+        onClick={onZoomIn}
+        className="w-9 h-9 flex items-center justify-center rounded-xl font-black transition-all cursor-pointer hover:brightness-125 active:scale-90"
+        style={{
+          background: "#0d1828",
+          color: "#5a90c8",
+          border: "1px solid #1e3050",
+          fontSize: 18,
+        }}
+        title="Zoom In"
+      >
+        +
+      </button>
+
+      {/* Percent indicator */}
+      <button
+        onClick={onReset}
+        className="w-9 flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 font-mono font-bold cursor-pointer transition-all hover:brightness-125"
+        style={{
+          background: "#0a1420",
+          color: "#3a6090",
+          border: "1px solid #1a2840",
+          fontSize: 10,
+          lineHeight: 1,
+        }}
+        title="Reset zoom & position"
+      >
+        <span style={{ color: "#5a90c8", fontSize: 13, fontWeight: 900 }}>
+          {Math.round(scale * 100)}
+        </span>
+        <span style={{ color: "#2a4060", fontSize: 8 }}>%</span>
+        <span style={{ color: "#1e3050", fontSize: 7, marginTop: 2 }}>RESET</span>
+      </button>
+
+      {/* Zoom Out */}
+      <button
+        onClick={onZoomOut}
+        className="w-9 h-9 flex items-center justify-center rounded-xl font-black transition-all cursor-pointer hover:brightness-125 active:scale-90"
+        style={{
+          background: "#0d1828",
+          color: "#5a90c8",
+          border: "1px solid #1e3050",
+          fontSize: 18,
+        }}
+        title="Zoom Out"
+      >
+        −
+      </button>
+
+      {/* Divider */}
+      <div className="w-6 h-px" style={{ background: "#1a2840" }} />
+
+      {/* Scroll hint */}
+      <div
+        className="flex flex-col items-center gap-1"
+        style={{ color: "#1e3050" }}
+        title="Scroll wheel to zoom"
+      >
+        <span style={{ fontSize: 14 }}>⊛</span>
+        <span style={{ fontSize: 7, fontFamily: "monospace", letterSpacing: "0.05em" }}>SCROLL</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Draggable + Zoomable Calculator ─────────────────────────────────────────
+function DraggableCalculator({
+  showExpandedDisplay,
+  onToggleExpandedDisplay,
+}: {
+  showExpandedDisplay: boolean;
+  onToggleExpandedDisplay: () => void;
+}) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Drag ──────────────────────────────────────────────────────────────────
+  const onDragBarPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    setIsDragging(true);
+  }, [pos]);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      setPos({
+        x: dragRef.current.origX + (e.clientX - dragRef.current.startX),
+        y: dragRef.current.origY + (e.clientY - dragRef.current.startY),
+      });
+    };
+    const onUp = () => { dragRef.current = null; setIsDragging(false); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  // ── Scroll to zoom ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setScale((s) => Math.min(2, Math.max(0.4, s - e.deltaY * 0.001)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const zoomIn  = () => setScale((s) => Math.min(2,   parseFloat((s + 0.1).toFixed(2))));
+  const zoomOut = () => setScale((s) => Math.max(0.4, parseFloat((s - 0.1).toFixed(2))));
+  const zoomReset = () => { setScale(1); setPos({ x: 0, y: 0 }); };
+
+  return (
+    <div ref={containerRef} className="flex flex-1 overflow-hidden h-full">
+      {/* ── Left zoom panel ── */}
+      <ZoomPanel
+        scale={scale}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onReset={zoomReset}
+        showExpanded={showExpandedDisplay}
+        onToggleExpanded={onToggleExpandedDisplay}
+      />
+
+      {/* ── Canvas area ── */}
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+        {/* Positioned calculator */}
+        <div
+          style={{
+            transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
+            transformOrigin: "center center",
+            transition: isDragging ? "none" : "transform 0.05s ease-out",
+          }}
+        >
+          {/* Drag handle — sits on top of calculator body */}
+          <div
+            onPointerDown={onDragBarPointerDown}
+            className="flex items-center justify-center gap-3 select-none rounded-t-[18px] px-5 py-2"
+            style={{
+              background: "linear-gradient(90deg, #0a1420 0%, #0f1c2e 50%, #0a1420 100%)",
+              border: "2px solid #3a4050",
+              borderBottom: "none",
+              cursor: isDragging ? "grabbing" : "grab",
+              userSelect: "none",
+            }}
+            title="Drag to move"
+          >
+            {/* Left dots */}
+            <div className="flex gap-1.5">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-[5px] h-[5px] rounded-full" style={{ background: "#2a3a50" }} />
+              ))}
+            </div>
+            <span style={{ color: "#1e3050", fontSize: 9, fontFamily: "monospace", letterSpacing: "0.25em" }}>
+              MOVE
+            </span>
+            {/* Right dots */}
+            <div className="flex gap-1.5">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-[5px] h-[5px] rounded-full" style={{ background: "#2a3a50" }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Glow behind calculator */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "0 0 22px 22px",
+              boxShadow: "0 0 80px rgba(30,60,120,0.22), 0 0 160px rgba(20,40,80,0.14)",
+              zIndex: -1,
+              pointerEvents: "none",
+            }}
+          />
+
+          <CalculatorShell />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Info card ────────────────────────────────────────────────────────────────
+function InfoCard() {
+  const { angleMode, memory, lastAnswer, cycleAngleMode } = useCasioStore();
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ background: "#0d1520", border: "1px solid #1e2e44" }}
+    >
+      {/* Header */}
+      <div
+        className="border-b"
+        style={{ borderColor: "#1e2e44", background: "#0a1228", padding: "10px 20px" }}
+      >
+        <span
+          className="font-black tracking-[0.32em]"
+          style={{ color: "#4a6888", fontSize: 11 }}
+        >
+          STATUS
+        </span>
+      </div>
+
+      {/* Rows */}
+      <div style={{ padding: "12px 20px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="flex items-center justify-between">
+          <span style={{ color: "#6888a8", fontSize: 14, fontWeight: 600 }}>Angle</span>
+          <button
+            onClick={cycleAngleMode}
+            className="font-black rounded-lg transition-all cursor-pointer hover:brightness-110 active:scale-95"
+            style={{
+              background: "#1a3258",
+              color: "#7ab8f0",
+              border: "1px solid #2a4a78",
+              fontSize: 13,
+              letterSpacing: "0.1em",
+              padding: "4px 14px",
+            }}
+            title="Click to cycle DEG → RAD → GRD"
+          >
+            {angleMode}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span style={{ color: "#6888a8", fontSize: 14, fontWeight: 600 }}>Memory</span>
+          <span style={{ color: "#60c090", fontSize: 15, fontWeight: 700, fontFamily: "monospace" }}>
+            {memory !== 0 ? memory : "—"}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span style={{ color: "#6888a8", fontSize: 14, fontWeight: 600 }}>Ans</span>
+          <span style={{ color: "#80a8d0", fontSize: 14, fontWeight: 700, fontFamily: "monospace" }}>
+            {lastAnswer !== 0 ? lastAnswer.toPrecision(8) : "0"}
+          </span>
+        </div>
+      </div>
+
+      {/* Hints */}
+      <div style={{ borderTop: "1px solid #1e2e44", padding: "10px 20px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+        {[
+          { key: "F1–F6", desc: "function keys" },
+          { key: "ESC",   desc: "back / EXIT" },
+          { key: "Shift+S/C/T", desc: "trig" },
+          { key: "Scroll",desc: "zoom in/out" },
+        ].map(({ key, desc }) => (
+          <div key={key} style={{ fontSize: 12, color: "#3a5070" }}>
+            <span style={{ color: "#4e6e92", fontWeight: 700 }}>{key}</span>
+            {" "}— {desc}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Mini history ─────────────────────────────────────────────────────────────
+function MiniHistory() {
+  const { history } = useCasioStore();
+  const recent = history.slice(0, 6);
+
+  return (
+    <div
+      className="rounded-2xl flex-1 overflow-hidden flex flex-col"
+      style={{ background: "#0d1520", border: "1px solid #1e2e44" }}
+    >
+      {/* Header */}
+      <div
+        className="border-b shrink-0"
+        style={{ borderColor: "#1e2e44", background: "#0a1228", padding: "10px 20px" }}
+      >
+        <span
+          className="font-black tracking-[0.32em]"
+          style={{ color: "#4a6888", fontSize: 11 }}
+        >
+          HISTORY
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto panel-scroll" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {recent.length === 0 ? (
+          <div
+            className="text-center font-mono"
+            style={{ color: "#2a3a50", fontSize: 12, paddingTop: 16 }}
+          >
+            No calculations yet
+          </div>
+        ) : (
+          recent.map((entry) => (
+            <div
+              key={entry.id}
+              className="rounded-xl transition-colors hover:brightness-110"
+              style={{ background: "#0a1220", border: "1px solid #1a2a3a", padding: "10px 14px" }}
+            >
+              <div
+                className="font-mono truncate"
+                style={{ color: "#4a7aaa", fontSize: 12 }}
+              >
+                {entry.expression}
+              </div>
+              <div
+                className="font-mono font-black text-right"
+                style={{ color: "#90d0ff", fontSize: 17, marginTop: 4 }}
+              >
+                {entry.result}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Expanded display (large mirrored LCD panel) ───────────────────────────
+function ExpandedDisplay({ onClose }: { onClose: () => void }) {
+  const calcState = useCalculatorState();
+  const [isError] = useState(false);
+
+  const displayExpr = calcState.expression.replace(/\*/g, "×").replace(/\//g, "÷");
+  const showResult = calcState.result !== "0" && calcState.result !== "";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -40, scale: 0.96 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -40, scale: 0.96 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+      className="flex flex-col rounded-2xl overflow-hidden shrink-0"
+      style={{
+        width: 520,
+        background: "#080e18",
+        border: "2px solid #1e3050",
+        boxShadow: "0 0 40px rgba(20,60,120,0.25), 0 8px 32px rgba(0,0,0,0.5)",
+        margin: "20px 0 20px 12px",
+      }}
+    >
+      {/* Header bar */}
+      <div
+        className="flex items-center justify-between px-5 py-3 shrink-0 border-b"
+        style={{ borderColor: "#1a2a40", background: "#0a1420" }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-2 h-2 rounded-full animate-pulse"
+            style={{ background: "#4488e0", boxShadow: "0 0 6px #4488e0" }}
+          />
+          <span
+            className="font-mono font-bold tracking-[0.3em]"
+            style={{ color: "#3a6090", fontSize: 11 }}
+          >
+            EXPANDED DISPLAY
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer hover:brightness-125"
+          style={{ background: "#1a2a40", color: "#5a8ab0", fontSize: 14 }}
+          title="Close expanded display"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Large LCD */}
+      <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
+        <CasioScreen
+          expression={displayExpr}
+          result={showResult ? calcState.result : ""}
+          isError={isError}
+          modeTitle="RUN-MAT ● EXPANDED"
+        />
+      </div>
+
+      {/* Footer hint */}
+      <div
+        className="px-5 py-2.5 shrink-0 border-t flex items-center gap-2"
+        style={{ borderColor: "#1a2a40", background: "#060c14" }}
+      >
+        <div
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ background: "#44cc88", boxShadow: "0 0 4px #44cc88" }}
+        />
+        <span style={{ color: "#2a4060", fontSize: 11, fontFamily: "monospace" }}>
+          Live mirror of calculator display
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── App shell content ────────────────────────────────────────────────────────
+function AppShellContent() {
+  const { currentMode, setMode } = useCasioStore();
+  const isCalcMode = currentMode === "RUN_MAT" || currentMode === "MENU";
+  const [showExpandedDisplay, setShowExpandedDisplay] = useState(false);
+
+  return (
+    <div
+      className="flex h-screen w-screen overflow-hidden"
+      style={{ background: "radial-gradient(ellipse at 50% 40%, #141c2a 0%, #0c0e14 60%, #080a10 100%)" }}
+    >
+      {isCalcMode ? (
+        /* ── Calculator mode ── */
+        <div className="flex flex-1 overflow-hidden h-full">
+
+          {/* Expanded display panel — left */}
+          <AnimatePresence>
+            {showExpandedDisplay && (
+              <ExpandedDisplay onClose={() => setShowExpandedDisplay(false)} />
+            )}
+          </AnimatePresence>
+
+          {/* Draggable calculator + zoom panel */}
+          <DraggableCalculator
+            showExpandedDisplay={showExpandedDisplay}
+            onToggleExpandedDisplay={() => setShowExpandedDisplay((v) => !v)}
+          />
+
+          {/* Right info panel */}
+          <div
+            className="flex flex-col gap-4 shrink-0 overflow-hidden"
+            style={{ width: 320, padding: "20px 16px 20px 8px" }}
+          >
+            <InfoCard />
+            <MiniHistory />
+          </div>
+        </div>
+      ) : (
+        /* ── Non-calculator modes ── */
+        <div
+          className="flex flex-col flex-1 overflow-hidden m-4 rounded-2xl"
+          style={{
+            background: "#0d1520",
+            border: "1px solid #1a2a40",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          }}
+        >
+          <ModeHeader mode={currentMode} onBack={() => setMode("MENU")} />
+          <div className="flex flex-1 overflow-hidden">
+            <ModePanel mode={currentMode} />
+            <HistorySidebar />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
 export default function AppShell() {
   return (
     <AppProvider>

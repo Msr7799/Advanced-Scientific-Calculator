@@ -31,24 +31,16 @@ const CalculatorStateContext = createContext<CalculatorState | undefined>(undefi
 const CalculatorDispatchContext = createContext<CalculatorDispatch | undefined>(undefined);
 
 function readStoredState(): CalculatorState | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-
+  if (typeof window === "undefined") return undefined;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return undefined;
-    }
-
+    if (!raw) return undefined;
     const parsed = JSON.parse(raw ?? "{}") as StoredCalculatorState;
     const modeVal = parsed.angleMode === "RAD" ? "RAD" : parsed.angleMode === "GRD" ? "GRD" : "DEG";
     const memoryValue = typeof parsed.memory === "number" && Number.isFinite(parsed.memory)
-      ? parsed.memory
-      : Number(parsed.memory ?? 0) || 0;
+      ? parsed.memory : Number(parsed.memory ?? 0) || 0;
     const lastAnswerValue = typeof parsed.lastAnswer === "number" && Number.isFinite(parsed.lastAnswer)
-      ? parsed.lastAnswer
-      : Number(parsed.lastAnswer ?? 0) || 0;
+      ? parsed.lastAnswer : Number(parsed.lastAnswer ?? 0) || 0;
 
     return {
       ...initialState,
@@ -67,13 +59,8 @@ function readStoredState(): CalculatorState | undefined {
 
 function addHistoryEntry(state: CalculatorState, expression: string, result: string): HistoryEntry[] {
   const entry: HistoryEntry = {
-    id: crypto.randomUUID(),
-    expression,
-    result,
-    pinned: false,
-    createdAt: new Date().toISOString(),
+    id: crypto.randomUUID(), expression, result, pinned: false, createdAt: new Date().toISOString(),
   };
-
   return [entry, ...state.history].slice(0, 10);
 }
 
@@ -81,16 +68,12 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
   switch (action.type) {
     case "HYDRATE": {
       const payload = action.payload as StoredCalculatorState | undefined;
-      if (!payload) {
-        return state;
-      }
+      if (!payload) return state;
       const modeVal = payload.angleMode === "RAD" ? "RAD" : payload.angleMode === "GRD" ? "GRD" : "DEG";
       const memoryValue = typeof payload.memory === "number" && Number.isFinite(payload.memory)
-        ? payload.memory
-        : Number(payload.memory ?? state.memory) || state.memory;
+        ? payload.memory : Number(payload.memory ?? state.memory) || state.memory;
       const lastAnswerValue = typeof payload.lastAnswer === "number" && Number.isFinite(payload.lastAnswer)
-        ? payload.lastAnswer
-        : Number(payload.lastAnswer ?? state.lastAnswer) || state.lastAnswer;
+        ? payload.lastAnswer : Number(payload.lastAnswer ?? state.lastAnswer) || state.lastAnswer;
 
       return {
         ...state,
@@ -117,27 +100,15 @@ function calculatorReducer(state: CalculatorState, action: CalculatorAction): Ca
       const expression = state.expression.trim();
       const result = String(action.payload ?? state.result);
       if (!expression) return state;
-      return {
-        ...state,
-        result,
-        lastAnswer: Number(result) || state.lastAnswer,
-        history: addHistoryEntry(state, expression, result),
-      };
+      return { ...state, result, lastAnswer: Number(result) || state.lastAnswer, history: addHistoryEntry(state, expression, result) };
     }
     case "PIN_HISTORY":
       return {
         ...state,
-        history: state.history.map((entry) =>
-          entry.id === String(action.payload)
-            ? { ...entry, pinned: !entry.pinned }
-            : entry
-        ),
+        history: state.history.map((entry) => entry.id === String(action.payload) ? { ...entry, pinned: !entry.pinned } : entry),
       };
     case "REMOVE_HISTORY":
-      return {
-        ...state,
-        history: state.history.filter((entry) => entry.id !== String(action.payload)),
-      };
+      return { ...state, history: state.history.filter((entry) => entry.id !== String(action.payload)) };
     case "SET_HISTORY_SEARCH":
       return state;
     case "SET_MODE":
@@ -164,9 +135,7 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     const stored = readStoredState();
-    if (stored) {
-      dispatch({ type: "HYDRATE", payload: stored });
-    }
+    if (stored) dispatch({ type: "HYDRATE", payload: stored });
   }, []);
 
   useEffect(() => {
@@ -186,16 +155,12 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
 
 export function useCalculatorState(): CalculatorState {
   const context = useContext(CalculatorStateContext);
-  if (!context) {
-    throw new Error("useCalculatorState must be used within CalculatorProvider");
-  }
+  if (!context) throw new Error("useCalculatorState must be used within CalculatorProvider");
   return context;
 }
 
 export function useCalculatorDispatch(): React.Dispatch<CalculatorAction> {
   const context = useContext(CalculatorDispatchContext);
-  if (!context) {
-    throw new Error("useCalculatorDispatch must be used within CalculatorProvider");
-  }
+  if (!context) throw new Error("useCalculatorDispatch must be used within CalculatorProvider");
   return context;
 }
