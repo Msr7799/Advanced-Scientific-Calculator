@@ -11,10 +11,12 @@
   "dependencies": {
     "framer-motion": "^12.42.2",
     "jstat": "^1.9.6",
+    "lucide-react": "^1.31.0",
     "mathjs": "^15.2.0",
     "mathlive": "^0.110.0",
     "nerdamer": "^1.1.13",
     "next": "16.2.10",
+    "pyodide": "^314.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-katex": "^3.1.0",

@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCalculatorDispatch, useCalculatorState } from "@/lib/state/calculatorState";
 import { useCasioStore } from "@/store/calculatorStore";
 import { calculate } from "@/lib/math/engine";
+import { casExpand, casFactor, casSimplify, casSolve } from "@/lib/cas/casEngine";
 import { useAppState } from "@/lib/state/appState";
 import CasioScreen from "@/components/display/CasioScreen";
 import CasioMenuScreen from "@/components/display/CasioMenuScreen";
-import type { CasioMode, CasioKeyDef } from "@/types/calculator";
+import type { CasioKeyDef } from "@/types/calculator";
 import { mapKeyboardEvent, shouldPreventDefault } from "@/lib/keyboard/casioKeyboard";
 
 // ─── Key layout data (Casio fx-CG50 authentic) ───────────────────────────────
@@ -20,6 +21,22 @@ const F_KEYS: CasioKeyDef[] = [
   { label: "F5", action: "f5", variant: "fn", shiftLabel: "G-Solv"   },
   { label: "F6", action: "f6", variant: "fn", shiftLabel: "G↔T"      },
 ];
+
+function greatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : greatestCommonDivisor(b, a % b);
+}
+
+function toSimpleFraction(decimal: number): string | null {
+  if (Number.isInteger(decimal)) return null;
+  for (let denominator = 2; denominator <= 1000; denominator++) {
+    const numerator = Math.round(decimal * denominator);
+    if (Math.abs(numerator / denominator - decimal) < 1e-9) {
+      const divisor = greatestCommonDivisor(Math.abs(numerator), denominator);
+      return `${numerator / divisor}/${denominator / divisor}`;
+    }
+  }
+  return null;
+}
 
 const keyRows: CasioKeyDef[][] = [
   // ── Row 1: Modifiers + MENU + EXIT ─────────────────────────────────────────
@@ -287,7 +304,7 @@ export default function CalculatorShell() {
   const dispatch = useCalculatorDispatch();
   const appState = useAppState();
   const [isError, setIsError] = useState(false);
-  const [fKeyMenu, setFKeyMenu] = useState<"main" | "more" | "calc" | "algb" | "optn" | "vars">("main");
+  const [fKeyMenu, setFKeyMenu] = useState<"main" | "more" | "calc" | "algb" | "optn" | "optn2" | "vars">("main");
 
   const currentFKeyLabels = useMemo(() => {
     switch (fKeyMenu) {
@@ -305,17 +322,26 @@ export default function CalculatorShell() {
           { key: "F1", label: "Simp" },
           { key: "F2", label: "Fact" },
           { key: "F3", label: "Expa" },
-          { key: "F4", label: "X" },
-          { key: "F5", label: "Y" },
+          { key: "F4", label: "Solve" },
+          { key: "F5", label: "x" },
           { key: "F6", label: "BACK" },
         ];
       case "optn":
         return [
-          { key: "F1", label: "abs" },
-          { key: "F2", label: "gcd" },
-          { key: "F3", label: "lcm" },
-          { key: "F4", label: "mod" },
-          { key: "F5", label: "logb" },
+          { key: "F1", label: "LIST" },
+          { key: "F2", label: "MAT/VCT" },
+          { key: "F3", label: "CPLX" },
+          { key: "F4", label: "CALC" },
+          { key: "F5", label: "STAT" },
+          { key: "F6", label: "▶" },
+        ];
+      case "optn2":
+        return [
+          { key: "F1", label: "CONV" },
+          { key: "F2", label: "HYP" },
+          { key: "F3", label: "PROB" },
+          { key: "F4", label: "NUM" },
+          { key: "F5", label: "ANGLE" },
           { key: "F6", label: "BACK" },
         ];
       case "vars":
@@ -389,6 +415,24 @@ export default function CalculatorShell() {
     }
   }, [dispatch, calcState.expression, evalContext, setLastAnswer, addHistory]);
 
+  const handleAlgebra = useCallback(async (operation: "simplify" | "factor" | "expand" | "solve") => {
+    if (!calcState.expression.trim()) return;
+    const handlers = {
+      simplify: casSimplify,
+      factor: casFactor,
+      expand: casExpand,
+      solve: (expression: string) => casSolve(expression, "x"),
+    };
+    const response = await handlers[operation](calcState.expression);
+    if (response.success) {
+      setIsError(false);
+      dispatch({ type: "SET_RESULT", payload: response.result });
+    } else {
+      setIsError(true);
+      dispatch({ type: "SET_RESULT", payload: response.error ?? "CAS ERROR" });
+    }
+  }, [calcState.expression, dispatch]);
+
   // ── Button click handler ────────────────────────────────────────────────────
   const handleClick = useCallback((action: string) => {
     setIsError(false);
@@ -398,7 +442,6 @@ export default function CalculatorShell() {
     if (action === "alpha") { toggleAlpha(); return; }
 
     const wasShift = shiftActive;
-    const wasAlpha = alphaActive;
     clearModifiers();
 
     // ── Control ───────────────────────────────────────────────────────────────
@@ -541,44 +584,51 @@ export default function CalculatorShell() {
         if (fKeyMenu === "main") setFKeyMenu("calc");
         else if (fKeyMenu === "more") store.cycleAngleMode();
         else if (fKeyMenu === "calc") append("integrate(");
-        else if (fKeyMenu === "algb") append("simplify(");
-        else if (fKeyMenu === "optn") append("abs(");
+        else if (fKeyMenu === "algb") void handleAlgebra("simplify");
+        else if (fKeyMenu === "optn") append("[");
+        else if (fKeyMenu === "optn2") append("convert(");
         else if (fKeyMenu === "vars") append("ans");
         break;
       case "f2":
         if (fKeyMenu === "main") setFKeyMenu("algb");
         else if (fKeyMenu === "more") append(String(store.recallMemory()));
         else if (fKeyMenu === "calc") append("derivative(");
-        else if (fKeyMenu === "algb") append("factor(");
-        else if (fKeyMenu === "optn") append("gcd(");
+        else if (fKeyMenu === "algb") void handleAlgebra("factor");
+        else if (fKeyMenu === "optn") setMode("MATRIX");
+        else if (fKeyMenu === "optn2") append("sinh(");
         else if (fKeyMenu === "vars") append("memory");
         break;
       case "f3":
         if (fKeyMenu === "main") setFKeyMenu("optn");
         else if (fKeyMenu === "more") store.storeMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("derivative(derivative(");
-        else if (fKeyMenu === "algb") append("expand(");
-        else if (fKeyMenu === "optn") append("lcm(");
+        else if (fKeyMenu === "algb") void handleAlgebra("expand");
+        else if (fKeyMenu === "optn") append("i");
+        else if (fKeyMenu === "optn2") append("nCr(");
         else if (fKeyMenu === "vars") append("x");
         break;
       case "f4":
         if (fKeyMenu === "main") setMode("MENU");
         else if (fKeyMenu === "more") store.addMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("solve(");
-        else if (fKeyMenu === "algb") append("x");
-        else if (fKeyMenu === "optn") append("mod(");
+        else if (fKeyMenu === "algb") void handleAlgebra("solve");
+        else if (fKeyMenu === "optn") setFKeyMenu("calc");
+        else if (fKeyMenu === "optn2") append("abs(");
         else if (fKeyMenu === "vars") append("y");
         break;
       case "f5":
         if (fKeyMenu === "main") setFKeyMenu("vars");
         else if (fKeyMenu === "more") store.subtractMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("sum(");
-        else if (fKeyMenu === "algb") append("y");
-        else if (fKeyMenu === "optn") append("log(");
+        else if (fKeyMenu === "algb") append("x");
+        else if (fKeyMenu === "optn") setMode("STATISTICS");
+        else if (fKeyMenu === "optn2") store.cycleAngleMode();
         else if (fKeyMenu === "vars") append("z");
         break;
       case "f6":
-        if (fKeyMenu === "main") {
+        if (fKeyMenu === "optn") {
+          setFKeyMenu("optn2");
+        } else if (fKeyMenu === "main") {
           setFKeyMenu("more");
         } else {
           setFKeyMenu("main");
@@ -599,8 +649,8 @@ export default function CalculatorShell() {
         }
     }
   }, [dispatch, handleEvaluate, setMode, store, calcState.result, calcState.expression,
-      toggleShift, toggleAlpha, clearModifiers, shiftActive, alphaActive, currentMode,
-      fKeyMenu, setFKeyMenu]);
+      toggleShift, toggleAlpha, clearModifiers, shiftActive, currentMode,
+      fKeyMenu, setFKeyMenu, handleAlgebra]);
 
   // ── Keyboard handler ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -640,20 +690,6 @@ export default function CalculatorShell() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [dispatch, handleEvaluate, currentMode, setMode, handleClick]);
-
-  // ── Simple fraction converter ───────────────────────────────────────────────
-  function toSimpleFraction(decimal: number): string | null {
-    if (Number.isInteger(decimal)) return null; // already whole
-    for (let denom = 2; denom <= 1000; denom++) {
-      const numer = Math.round(decimal * denom);
-      if (Math.abs(numer / denom - decimal) < 1e-9) {
-        const g = gcd(Math.abs(numer), denom);
-        return `${numer / g}/${denom / g}`;
-      }
-    }
-    return null;
-  }
-  function gcd(a: number, b: number): number { return b === 0 ? a : gcd(b, a % b); }
 
   const handleNav = useCallback((dir: string) => {
     // Dispatch real keyboard events so CasioMenuScreen + other handlers receive them

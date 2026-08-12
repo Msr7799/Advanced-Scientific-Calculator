@@ -141,11 +141,7 @@ function ModePanel({ mode }: { mode: CasioMode }) {
         {mode === "STATISTICS" && <StatisticsMode />}
         {mode === "TABLE"      && <TableMode />}
         {mode === "PYTHON"     && <PythonMode />}
-        {mode === "EQUATION"   && (
-          <div className="h-full overflow-y-auto panel-scroll p-5">
-            <EquationSolver />
-          </div>
-        )}
+        {mode === "EQUATION"   && <EquationSolver />}
       </motion.div>
     </AnimatePresence>
   );

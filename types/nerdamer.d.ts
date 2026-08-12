@@ -3,6 +3,7 @@ declare module "nerdamer" {
   interface NerdamerStatic {
     (expression: string, subs?: Record<string, string | number>, options?: string[]): NerdamerExpression;
     solve(equation: string, variable: string): NerdamerExpression;
+    solveEquations(equations: string[]): Array<[string, string | number]>;
     diff(expression: string, variable: string, nth?: number): NerdamerExpression;
     integrate(expression: string, variable: string): NerdamerExpression;
     simplify(expression: string): NerdamerExpression;

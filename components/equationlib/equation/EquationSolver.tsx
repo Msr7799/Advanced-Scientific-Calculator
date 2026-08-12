@@ -1,117 +1,100 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { Calculator, RotateCcw } from "lucide-react";
+import nerdamer from "nerdamer";
+import "nerdamer/Algebra";
+import "nerdamer/Solve";
 
-type EquationType = "linear" | "quadratic" | "system2" | "system3";
+type EquationType = "solver" | "polynomial" | "system2" | "system3";
 
-const initialEquations: Record<EquationType, string> = {
-  linear: "2x+3=7",
-  quadratic: "x^2-5x+6=0",
-  system2: "2x+3y=8; x-2y=1",
-  system3: "x+y+z=6; 2x-y+z=3; x-2y+3z=4",
-};
+const MODES: Array<{ id: EquationType; label: string; hint: string; initial: string }> = [
+  { id: "solver", label: "SOLVER", hint: "Equation in x", initial: "2*x+3=7" },
+  { id: "polynomial", label: "POLY", hint: "Polynomial equation", initial: "x^2-5*x+6=0" },
+  { id: "system2", label: "SIMUL 2", hint: "Two equations, one per line", initial: "2*x+3*y=8\nx-2*y=1" },
+  { id: "system3", label: "SIMUL 3", hint: "Three equations, one per line", initial: "x+y+z=6\n2*x-y+z=3\nx-2*y+3*z=4" },
+];
 
-function solveLinear(expression: string) {
-  return `Solve linear equation ${expression} using algebraic substitution`;
-}
-
-function solveQuadratic(expression: string) {
-  return `Solve quadratic equation ${expression} using discriminant formula`;
-}
-
-function solveSystem2(expression: string) {
-  return `Solve 2x2 system ${expression} using elimination`;
-}
-
-function solveSystem3(expression: string) {
-  return `Solve 3x3 system ${expression} using Gaussian elimination`;
+function solveEquation(mode: EquationType, input: string): string[] {
+  if (mode === "solver" || mode === "polynomial") {
+    const solutions = nerdamer.solve(input, "x").toString().replace(/^\[|\]$/g, "").split(",").filter(Boolean);
+    if (solutions.length === 0) throw new Error("No real or symbolic solution found");
+    return solutions.map((solution, index) => solutions.length === 1 ? `x = ${solution}` : `x${index + 1} = ${solution}`);
+  }
+  const equations = input.split(/[;\n]+/).map((line) => line.trim()).filter(Boolean);
+  const expected = mode === "system2" ? 2 : 3;
+  if (equations.length !== expected) throw new Error(`Enter exactly ${expected} equations`);
+  return nerdamer.solveEquations(equations).map(([variable, value]) => `${variable} = ${value}`);
 }
 
 export default function EquationSolver() {
-  const [selected, setSelected] = useState<EquationType>("linear");
-  const [input, setInput] = useState(initialEquations[selected]);
-  const [solution, setSolution] = useState("Ready to solve.");
+  const [selected, setSelected] = useState<EquationType>("solver");
+  const [input, setInput] = useState(MODES[0].initial);
+  const [solutions, setSolutions] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const currentMode = MODES.find((mode) => mode.id === selected) ?? MODES[0];
 
-  const steps = useMemo(() => {
-    switch (selected) {
-      case "linear":
-        return ["Isolate x.", "Compute the value."];
-      case "quadratic":
-        return ["Compute a, b, c.", "Use the quadratic formula."];
-      case "system2":
-        return ["Convert to standard form.", "Eliminate one variable.", "Back substitute."];
-      case "system3":
-        return ["Set up augmented matrix.", "Perform row reduction.", "Extract variables."];
-    }
-  }, [selected]);
+  const selectMode = (mode: (typeof MODES)[number]) => {
+    setSelected(mode.id);
+    setInput(mode.initial);
+    setSolutions([]);
+    setError("");
+  };
 
-  const handleSolve = () => {
-    let result = "";
-    switch (selected) {
-      case "linear":
-        result = solveLinear(input);
-        break;
-      case "quadratic":
-        result = solveQuadratic(input);
-        break;
-      case "system2":
-        result = solveSystem2(input);
-        break;
-      case "system3":
-        result = solveSystem3(input);
-        break;
+  const solve = () => {
+    try {
+      setSolutions(solveEquation(selected, input));
+      setError("");
+    } catch (reason) {
+      setSolutions([]);
+      setError(reason instanceof Error ? reason.message : "Equation ERROR");
     }
-    setSolution(result);
   };
 
   return (
-    <section className="rounded-3xl border border-slate-700/70 bg-slate-900/90 p-5 shadow-inner shadow-slate-950/30">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {Object.keys(initialEquations).map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${selected === key ? "bg-sky-500 text-slate-950" : "bg-slate-800 text-slate-200 hover:bg-slate-700"}`}
-              onClick={() => {
-                setSelected(key as EquationType);
-                setInput(initialEquations[key as EquationType]);
-              }}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-        <label className="text-sm text-slate-400">Equation input</label>
-        <textarea
-          className="min-h-[120px] rounded-3xl border border-slate-700/70 bg-slate-950/90 p-4 text-slate-100 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          aria-label="Equation input"
-        />
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            className="rounded-3xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/80"
-            onClick={handleSolve}
-          >
-            Solve
+    <div className="flex h-full min-w-0 flex-col bg-[#07101c] text-[#c8d8e8]">
+      <div className="flex h-11 shrink-0 items-center border-b border-[#20324a] bg-[#0c1727] px-3">
+        <span className="text-[11px] font-black tracking-[0.22em] text-[#f06aac]">EQUATION</span>
+        <span className="ml-3 text-[9px] text-[#526b82]">Simultaneous · Polynomial · Solver</span>
+        <button type="button" onClick={() => selectMode(currentMode)} className="mode-icon-button ml-auto" title="Reset equation"><RotateCcw size={15} /></button>
+      </div>
+
+      <div className="flex h-10 shrink-0 items-end gap-1 border-b border-[#20324a] bg-[#09131f] px-3 pt-1">
+        {MODES.map((mode) => (
+          <button key={mode.id} type="button" onClick={() => selectMode(mode)} className={`mode-tab h-9 ${selected === mode.id ? "mode-tab-active" : ""}`}>{mode.label}</button>
+        ))}
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(300px,0.62fr)]">
+        <div className="flex min-h-0 flex-col border-r border-[#20324a] p-4">
+          <label className="mb-2 text-[10px] font-bold tracking-[0.16em] text-[#66809b]">{currentMode.hint.toUpperCase()}</label>
+          <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); solve(); }
+          }} className="min-h-40 flex-1 resize-none rounded-md border border-[#28415e] bg-[#020817] p-4 font-mono text-[15px] leading-7 text-white outline-none focus:border-[#4c7ca8]" aria-label="Equation input" spellCheck={false} />
+          <button type="button" onClick={solve} className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#287bb2] bg-[#126c9e] text-[11px] font-bold text-white hover:bg-[#1780b9]">
+            <Calculator size={16} /> SOLVE
           </button>
-          <span className="text-sm text-slate-400">Selected: {selected}</span>
         </div>
-        <div className="rounded-3xl border border-slate-700/70 bg-slate-950/90 p-4 text-slate-200">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Solution</p>
-          <p className="mt-3 text-sm leading-6">{solution}</p>
-        </div>
-        <div className="rounded-3xl border border-slate-700/70 bg-slate-950/90 p-4 text-slate-200">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Steps</p>
-          <ol className="mt-3 space-y-2 list-decimal list-inside text-sm text-slate-300">
-            {steps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
+
+        <div className="min-h-0 overflow-y-auto p-4">
+          <div className="text-[10px] font-bold tracking-[0.2em] text-[#66809b]">SOLUTION</div>
+          <div className="mt-2 min-h-36 rounded-md border border-[#28415e] bg-[#020817] p-4 font-mono">
+            {error ? <div className="text-[12px] text-[#ed7272]">{error}</div> : solutions.length > 0 ? solutions.map((solution) => <div key={solution} className="border-b border-[#16283c] py-2 text-[17px] font-bold text-white last:border-b-0">{solution}</div>) : <div className="text-[11px] text-[#3d5872]">Enter coefficients or equations, then press SOLVE.</div>}
+          </div>
+          <div className="mt-3 rounded-md border border-[#1b3048] bg-[#0b1625] p-3 text-[10px] leading-5 text-[#657f98]">
+            Use <span className="font-mono text-[#a4c2dc]">*</span> for multiplication and <span className="font-mono text-[#a4c2dc]">^</span> for powers. Separate simultaneous equations with a new line.
+          </div>
         </div>
       </div>
-    </section>
+
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+        <button type="button" onClick={() => selectMode(MODES[2])} className="mode-softkey">SIMUL</button>
+        <button type="button" onClick={() => selectMode(MODES[1])} className="mode-softkey">POLY</button>
+        <button type="button" onClick={() => selectMode(MODES[0])} className="mode-softkey">SOLVER</button>
+        <button type="button" onClick={() => setInput("")} className="mode-softkey">CLEAR</button>
+        <span className="mode-softkey cursor-default opacity-40">—</span>
+        <button type="button" onClick={solve} className="mode-softkey mode-softkey-active">SOLVE</button>
+      </div>
+    </div>
   );
 }

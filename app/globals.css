@@ -251,6 +251,107 @@ html, body {
   cursor: default;
 }
 
+.mode-icon-button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a405b;
+  border-radius: 5px;
+  background: #101d2d;
+  color: #7898b8;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.mode-icon-button:hover {
+  border-color: #41678e;
+  background: #172b42;
+  color: #c5def4;
+}
+
+.mode-icon-danger:hover {
+  border-color: #8b3d4a;
+  background: #381923;
+  color: #ff98a6;
+}
+
+.mode-tab {
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: transparent;
+  color: #7189a1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.mode-tab:hover {
+  background: #102036;
+  color: #b7d2e8;
+}
+
+.mode-tab-active {
+  border-color: #31506e;
+  background: #132841;
+  color: #fff;
+}
+
+.mode-segment {
+  height: 27px;
+  min-width: 38px;
+  border: 1px solid #29415d;
+  background: #0b1725;
+  color: #617d99;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mode-segment:first-child { border-radius: 4px 0 0 4px; }
+.mode-segment:last-child { border-radius: 0 4px 4px 0; }
+.mode-segment-active { background: #235681; color: #fff; }
+
+.mode-command {
+  display: flex;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid #243b56;
+  border-radius: 5px;
+  background: #0d1928;
+  color: #a9c5de;
+  cursor: pointer;
+}
+
+.mode-command:hover { background: #14263b; }
+.mode-command-active { border-color: #3976a9; background: #173654; color: #fff; }
+
+.mode-softkey {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #243a55;
+  background: transparent;
+  color: #79a9d4;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mode-softkey:last-child { border-right: 0; }
+.mode-softkey:hover { background: #132943; color: #c8e5ff; }
+.mode-softkey-active { background: #285d91; color: #fff; }
+
 /* ══════════════════════════════════════════════════
    MENU SCREEN ICONS
 ══════════════════════════════════════════════════ */
