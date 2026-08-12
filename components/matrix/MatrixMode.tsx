@@ -70,7 +70,7 @@ export default function MatrixMode() {
   };
 
   return (
-    <div className="grid h-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="mode-responsive-grid grid h-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="rounded-3xl border border-slate-800/80 bg-[#09110d] p-6 shadow-[inset_0_0_30px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-4">
           <div>

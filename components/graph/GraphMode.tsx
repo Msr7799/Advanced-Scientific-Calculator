@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCasioStore } from "@/store/calculatorStore";
 import { calculate } from "@/lib/math/engine";
-import { Trash2 } from "lucide-react";
+import { ContextMenu, type ContextMenuEntry } from "@/components/ui/context-menu";
+import { AnimatePresence, motion } from "framer-motion";
+import { Crosshair, Download, Expand, Grid3X3, Plus, RotateCcw, Table2, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 
 declare global {
   interface Window {
@@ -46,6 +48,8 @@ export default function GraphMode() {
   const [bounds, setBounds] = useState({ left: -10, right: 10, bottom: -10, top: 10 });
   const [showWindow, setShowWindow] = useState(false);
   const [graphMessage, setGraphMessage] = useState("");
+  const [showGrid, setShowGrid] = useState(true);
+  const [showAxes, setShowAxes] = useState(true);
 
   // ── Initialize Desmos ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -121,6 +125,42 @@ export default function GraphMode() {
     setGraphMessage("");
   }, []);
 
+  const zoomGraph = useCallback((factor: number) => {
+    const centerX = (bounds.left + bounds.right) / 2;
+    const centerY = (bounds.bottom + bounds.top) / 2;
+    const halfWidth = ((bounds.right - bounds.left) * factor) / 2;
+    const halfHeight = ((bounds.top - bounds.bottom) * factor) / 2;
+    applyBounds({ left: centerX - halfWidth, right: centerX + halfWidth, bottom: centerY - halfHeight, top: centerY + halfHeight });
+  }, [applyBounds, bounds]);
+
+  const resetGraph = useCallback(() => {
+    const defaults = { left: -10, right: 10, bottom: -10, top: 10 };
+    applyBounds(defaults);
+    setTraceX(0);
+    setTraceMode(false);
+    setGraphMessage("Graph view reset");
+    desmosRef.current?.removeExpression({ id: "sketch-marker" });
+  }, [applyBounds]);
+
+  const exportGraph = useCallback(() => {
+    const image = desmosRef.current?.screenshot({ width: 1600, height: 900, targetPixelRatio: 2 });
+    if (!image) { setGraphMessage("Graph export is available after Desmos loads"); return; }
+    const link = document.createElement("a");
+    link.href = image;
+    link.download = `casio-graph-${new Date().toISOString().slice(0, 10)}.png`;
+    link.click();
+    setGraphMessage("Graph image saved");
+  }, []);
+
+  const clearEquations = useCallback(() => {
+    graphEquations.forEach((equation, index) => {
+      setGraphEquation(equation.id, "");
+      if (index > 2) removeGraphEquation(equation.id);
+    });
+    desmosRef.current?.removeExpression({ id: "sketch-marker" });
+    setGraphMessage("Equations cleared");
+  }, [graphEquations, removeGraphEquation, setGraphEquation]);
+
   const handleFKey = useCallback((index: number) => {
     const active = graphEquations.find((equation) => equation.id === activeEq) ?? graphEquations.find((equation) => equation.visible && equation.expression.trim());
     if (index === 0) { setTraceMode((value) => !value); setGraphMessage(""); return; }
@@ -180,12 +220,37 @@ export default function GraphMode() {
     return () => { window.removeEventListener("casio-fkey", onFKey); window.removeEventListener("casio-nav", onNav); };
   }, [handleFKey, traceMode]);
 
+  const contextEntries = useMemo<ContextMenuEntry[]>(() => [
+    { type: "label", label: "GRAPH ACTIONS" },
+    { type: "item", label: "Add equation", icon: <Plus size={15} />, shortcut: "Y=", disabled: graphEquations.length >= 6, onSelect: addGraphEquation },
+    { type: "item", label: traceMode ? "Stop trace" : "Start trace", icon: <Crosshair size={15} />, shortcut: "F1", checked: traceMode, onSelect: () => handleFKey(0) },
+    { type: "item", label: "Find root", icon: <Crosshair size={15} />, shortcut: "F5", onSelect: () => handleFKey(4) },
+    { type: "separator" },
+    { type: "label", label: "VIEW" },
+    { type: "item", label: "Zoom in", icon: <ZoomIn size={15} />, shortcut: "+", onSelect: () => zoomGraph(0.5) },
+    { type: "item", label: "Zoom out", icon: <ZoomOut size={15} />, shortcut: "-", onSelect: () => zoomGraph(2) },
+    { type: "item", label: "V-Window settings", icon: <Grid3X3 size={15} />, shortcut: "F3", onSelect: () => setShowWindow(true) },
+    { type: "item", label: "Show grid", checked: showGrid, onSelect: () => {
+      const next = !showGrid; setShowGrid(next); desmosRef.current?.updateSettings({ showGrid: next });
+    } },
+    { type: "item", label: "Show axes", checked: showAxes, onSelect: () => {
+      const next = !showAxes; setShowAxes(next); desmosRef.current?.updateSettings({ xAxis: next, yAxis: next });
+    } },
+    { type: "item", label: "Reset graph view", icon: <RotateCcw size={15} />, shortcut: "Home", onSelect: resetGraph },
+    { type: "separator" },
+    { type: "item", label: "Open in Table", icon: <Table2 size={15} />, shortcut: "F6", onSelect: () => setMode("TABLE") },
+    { type: "item", label: "Full screen", icon: <Expand size={15} />, onSelect: () => window.dispatchEvent(new CustomEvent("casio-fullscreen", { detail: "GRAPH" })) },
+    { type: "item", label: "Save graph as PNG", icon: <Download size={15} />, onSelect: exportGraph },
+    { type: "separator" },
+    { type: "item", label: "Clear all equations", icon: <Trash2 size={15} />, destructive: true, disabled: graphEquations.every((equation) => !equation.expression.trim()), onSelect: clearEquations },
+  ], [addGraphEquation, clearEquations, exportGraph, graphEquations, handleFKey, resetGraph, setMode, showAxes, showGrid, traceMode, zoomGraph]);
+
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "#080e18" }}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="graph-workspace flex h-full overflow-hidden" style={{ background: "#080e18" }}>
 
       {/* ── Equation list (left panel) ─────────────────────────── */}
       <div
-        className="w-52 shrink-0 flex flex-col border-r overflow-hidden"
+        className="flex w-60 shrink-0 flex-col overflow-hidden border-r"
         style={{ borderColor: "#1a2840", background: "#0a1220" }}
       >
         {/* F-key bar */}
@@ -198,7 +263,7 @@ export default function GraphMode() {
               key={fk.key}
               type="button"
               onClick={() => handleFKey(Number(fk.key.slice(1)) - 1)}
-              className="py-1.5 text-center text-[8px] font-bold truncate border-r last:border-r-0"
+              className="min-h-8 truncate border-r px-1 py-2 text-center text-[8px] font-bold transition-colors hover:bg-[#10243a] last:border-r-0"
               style={{ color: fk.color, borderColor: "#1a2840" }}
             >
               {fk.label}
@@ -206,19 +271,19 @@ export default function GraphMode() {
           ))}
         </div>
 
-        <div className="text-[9px] font-bold tracking-[0.25em] px-3 py-2 border-b shrink-0" style={{ color: "#2a4060", borderColor: "#1a2840" }}>
+        <div className="shrink-0 border-b px-4 py-3 text-[9px] font-bold tracking-[0.25em]" style={{ color: "#4f6c8a", borderColor: "#1a2840" }}>
           EQUATIONS
         </div>
 
         {/* Equation inputs */}
-        <div className="flex-1 overflow-y-auto panel-scroll p-2 space-y-2">
+        <div className="panel-scroll flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {graphEquations.map((eq, idx) => (
-            <div key={eq.id} className="space-y-1">
-              <div className="flex items-center gap-1.5">
+            <motion.div layout key={eq.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="rounded-md border border-[#172a40] bg-[#08111e] p-2.5">
+              <div className="mb-2 flex items-center gap-2">
                 {/* Color dot / visibility toggle */}
                 <button
                   onClick={() => toggleGraphEquation(eq.id)}
-                  className="w-3 h-3 rounded-full shrink-0 border transition-all"
+                  className="h-4 w-4 shrink-0 rounded-full border transition-all"
                   style={{
                     background: eq.visible ? eq.color : "transparent",
                     borderColor: eq.color,
@@ -226,15 +291,16 @@ export default function GraphMode() {
                   }}
                   title="Toggle visibility"
                 />
-                <span className="text-[9px] font-mono text-[#3a5878]">Y{idx + 1}</span>
-                <span className="text-[9px] text-[#2a3a50]">=</span>
+                <span className="font-mono text-[10px] font-bold text-[#6b89a8]">Y{idx + 1}</span>
+                <span className="text-[10px] text-[#40546b]">=</span>
+                {graphEquations.length > 1 && <button type="button" onClick={() => removeGraphEquation(eq.id)} className="mode-icon-button ml-auto" title={`Remove Y${idx + 1}`}><Trash2 size={12} /></button>}
               </div>
               <input
                 value={eq.expression}
                 onChange={(e) => handleExprChange(eq.id, e.target.value)}
                 onFocus={() => setActiveEq(eq.id)}
                 onBlur={() => setActiveEq(null)}
-                className="w-full rounded px-2 py-1.5 text-[11px] font-mono transition-all"
+                className="w-full rounded px-3 py-2 text-[12px] font-mono transition-all"
                 style={{
                   background: "#080e18",
                   border: `1px solid ${activeEq === eq.id ? eq.color + "88" : "#1a2840"}`,
@@ -244,14 +310,13 @@ export default function GraphMode() {
                 }}
                 placeholder={`f(x) for Y${idx + 1}`}
               />
-              {graphEquations.length > 1 && <button type="button" onClick={() => removeGraphEquation(eq.id)} className="mode-icon-button ml-auto" title={`Remove Y${idx + 1}`}><Trash2 size={12} /></button>}
-            </div>
+            </motion.div>
           ))}
 
           {graphEquations.length < 6 && (
             <button
               onClick={addGraphEquation}
-              className="w-full rounded py-1.5 text-[10px] font-bold transition-all mt-1"
+              className="mt-2 min-h-10 w-full rounded px-3 py-2.5 text-[10px] font-bold transition-all hover:border-[#315779] hover:text-[#79aed8]"
               style={{
                 background: "#0a1828",
                 color: "#2a4060",
@@ -264,7 +329,7 @@ export default function GraphMode() {
         </div>
 
         {/* Graph controls */}
-        <div className="border-t p-2 space-y-1.5 shrink-0" style={{ borderColor: "#1a2840" }}>
+        <div className="shrink-0 space-y-1.5 border-t p-3" style={{ borderColor: "#1a2840" }}>
           <button
             onClick={() => setTraceMode((v) => !v)}
             className="w-full rounded py-1.5 text-[10px] font-bold transition-all"
@@ -280,10 +345,14 @@ export default function GraphMode() {
       </div>
 
       {/* ── Desmos graph area ──────────────────────────────────── */}
-        <div className="flex-1 relative overflow-hidden">
-        {showWindow && <div className="absolute left-3 top-3 z-30 grid grid-cols-2 gap-2 rounded border border-[#294766] bg-[#071322] p-3">
+      <ContextMenu entries={contextEntries} ariaLabel="Graph actions" className="relative min-w-0 flex-1 overflow-hidden">
+       <div className="relative h-full min-w-0 overflow-hidden">
+        <AnimatePresence>
+        {showWindow && <motion.div initial={{ opacity: 0, scale: 0.96, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: -4 }} className="absolute left-4 top-4 z-30 grid grid-cols-2 gap-3 rounded-md border border-[#294766] bg-[#071322]/95 p-4 shadow-2xl backdrop-blur">
           {(["left", "right", "bottom", "top"] as const).map((key) => <label key={key} className="text-[9px] uppercase text-[#6f8eaf]">{key}<input type="number" value={bounds[key]} onChange={(event) => applyBounds({ ...bounds, [key]: Number(event.target.value) })} className="mt-1 block w-20 rounded border border-[#294766] bg-[#020817] px-2 py-1 text-white" /></label>)}
-        </div>}
+          <button type="button" onClick={() => setShowWindow(false)} className="col-span-2 min-h-8 rounded border border-[#315779] text-[10px] font-bold text-[#79aed8] hover:bg-[#10283e]">DONE</button>
+        </motion.div>}
+        </AnimatePresence>
         {/* Desmos container */}
         <div
           ref={calcRef}
@@ -314,9 +383,12 @@ export default function GraphMode() {
         >
           GRAPH Y=
         </div>
-        {(graphMessage || traceMode) && <div className="absolute bottom-3 left-3 z-20 rounded border border-[#294766] bg-[#071322dd] px-3 py-2 font-mono text-[10px] text-[#80c8ff]">{graphMessage || `TRACE x=${traceX}`}</div>}
-      </div>
-    </div>
+        <AnimatePresence>
+          {(graphMessage || traceMode) && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute bottom-4 left-4 z-20 rounded border border-[#294766] bg-[#071322e8] px-3 py-2 font-mono text-[10px] text-[#80c8ff] shadow-lg">{graphMessage || `TRACE x=${traceX}`}</motion.div>}
+        </AnimatePresence>
+       </div>
+      </ContextMenu>
+    </motion.div>
   );
 }
 

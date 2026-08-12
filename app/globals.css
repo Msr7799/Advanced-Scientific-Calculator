@@ -373,6 +373,35 @@ html, body {
 .expanded-display {
   width: min(520px, 42vw);
   min-width: 420px;
+  container-name: expanded-display;
+  container-type: inline-size;
+  transition: width 180ms ease, min-width 180ms ease, box-shadow 180ms ease;
+}
+
+.expanded-display-resizing {
+  transition: none;
+  user-select: none;
+}
+
+.expanded-display-resizer::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.expanded-display-resizer:hover::after,
+.expanded-display-resizer:focus-visible::after,
+.expanded-display-resizing .expanded-display-resizer::after {
+  background: #4c91cb;
+  box-shadow: 0 0 12px rgba(76, 145, 203, 0.65);
+}
+
+.app-shell:has(.expanded-display-wide) .desktop-info-panel {
+  display: none;
 }
 
 @media (max-width: 1180px) {
@@ -386,9 +415,70 @@ html, body {
     position: fixed;
     inset: 8px;
     z-index: 80;
-    width: auto;
+    width: auto !important;
     min-width: 0;
     margin: 0 !important;
+  }
+
+  .expanded-display-resizer,
+  .expanded-width-toggle { display: none !important; }
+}
+
+@container expanded-display (max-width: 720px) {
+  .python-workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(220px, 1fr) minmax(150px, 0.55fr);
+  }
+
+  .python-workspace > * {
+    min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+
+  .mode-responsive-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-content: start;
+    overflow-y: auto;
+  }
+
+  .mode-responsive-grid > * {
+    min-width: 0;
+    min-height: 280px;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+
+  .mode-responsive-split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .mode-responsive-split > :first-child {
+    width: 100%;
+    max-height: 46%;
+    min-height: 230px;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+}
+
+@container expanded-display (max-width: 560px) {
+  .graph-workspace {
+    flex-direction: column;
+  }
+
+  .graph-workspace > :first-child {
+    width: 100%;
+    height: 43%;
+    min-height: 240px;
+    border-right: 0;
+    border-bottom: 1px solid #20334a;
+  }
+
+  .graph-workspace > :last-child {
+    min-height: 0;
+    flex: 1;
   }
 }
 

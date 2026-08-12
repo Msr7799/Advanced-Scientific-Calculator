@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { GripVertical, Maximize2, Minimize2, MoveHorizontal, X } from "lucide-react";
 import { CalculatorProvider, useCalculatorState } from "@/lib/state/calculatorState";
 import { useCasioStore } from "@/store/calculatorStore";
 import CalculatorShell from "@/components/calculator/CalculatorShell";
@@ -531,10 +531,31 @@ function ExpandedDisplay({ mode, onClose, onFullscreen }: {
   onFullscreen: () => void;
 }) {
   const calcState = useCalculatorState();
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window === "undefined") return 520;
+    const stored = Number(window.localStorage.getItem("expanded-display-width"));
+    return Number.isFinite(stored) && stored >= 420 ? stored : 520;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startWidth: number; currentWidth: number } | null>(null);
 
   const showResult = calcState.result !== "";
   const isCalculatorDisplay = mode === "RUN_MAT" || mode === "MENU";
   const meta = MODE_META[mode];
+  const clampWidth = useCallback((width: number) => {
+    if (typeof window === "undefined") return width;
+    const minimum = window.innerWidth < 900 ? 360 : 420;
+    const maximum = Math.max(minimum, Math.min(1100, window.innerWidth - 400));
+    return Math.round(Math.max(minimum, Math.min(maximum, width)));
+  }, []);
+  const persistWidth = useCallback((width: number) => {
+    window.localStorage.setItem("expanded-display-width", String(width));
+  }, []);
+  const toggleWidePanel = () => {
+    const next = clampWidth(panelWidth >= 680 ? 520 : 900);
+    setPanelWidth(next);
+    persistWidth(next);
+  };
 
   return (
     <motion.div
@@ -542,32 +563,75 @@ function ExpandedDisplay({ mode, onClose, onFullscreen }: {
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -40, scale: 0.96 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="expanded-display flex flex-col rounded-2xl overflow-hidden shrink-0"
+      className={`expanded-display relative flex shrink-0 flex-col overflow-hidden rounded-2xl ${panelWidth >= 680 ? "expanded-display-wide" : ""} ${isResizing ? "expanded-display-resizing" : ""}`}
       style={{
+        width: panelWidth,
         background: "#080e18",
         border: "2px solid #1e3050",
         boxShadow: "0 0 40px rgba(20,60,120,0.25), 0 8px 32px rgba(0,0,0,0.5)",
         margin: "20px 0 20px 12px",
       }}
     >
+      <div
+        role="separator"
+        aria-label="Resize expanded display"
+        aria-orientation="vertical"
+        aria-valuemin={420}
+        aria-valuemax={1100}
+        aria-valuenow={panelWidth}
+        tabIndex={0}
+        className="expanded-display-resizer group absolute right-0 top-0 z-50 flex h-full w-3 cursor-ew-resize items-center justify-center touch-none"
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          resizeRef.current = { startX: event.clientX, startWidth: panelWidth, currentWidth: panelWidth };
+          setIsResizing(true);
+        }}
+        onPointerMove={(event) => {
+          if (!resizeRef.current) return;
+          const next = clampWidth(resizeRef.current.startWidth + event.clientX - resizeRef.current.startX);
+          resizeRef.current.currentWidth = next;
+          setPanelWidth(next);
+        }}
+        onPointerUp={(event) => {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+          const finalWidth = resizeRef.current?.currentWidth ?? panelWidth;
+          resizeRef.current = null;
+          setIsResizing(false);
+          persistWidth(finalWidth);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const next = clampWidth(panelWidth + (event.key === "ArrowRight" ? 40 : -40));
+          setPanelWidth(next);
+          persistWidth(next);
+        }}
+      >
+        <span className="flex h-12 w-2 items-center justify-center rounded-l bg-[#19314a] text-[#6f9fc8] opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
+          <GripVertical size={12} />
+        </span>
+      </div>
       {/* Header bar */}
       <div
         className="flex items-center justify-between px-5 py-3 shrink-0 border-b"
         style={{ borderColor: "#1a2a40", background: "#0a1420" }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div
             className="w-2 h-2 rounded-full animate-pulse"
             style={{ background: "#4488e0", boxShadow: "0 0 6px #4488e0" }}
           />
           <span
-            className="font-mono font-bold tracking-[0.3em]"
+            className="truncate font-mono font-bold tracking-[0.3em]"
             style={{ color: "#3a6090", fontSize: 11 }}
           >
             {meta.label} DISPLAY
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          <button type="button" onClick={toggleWidePanel} className="mode-icon-button expanded-width-toggle" title={panelWidth >= 680 ? "Use standard panel width" : "Use wide panel"} aria-label={panelWidth >= 680 ? "Use standard panel width" : "Use wide panel"}>
+            <MoveHorizontal size={15} />
+          </button>
           {!isCalculatorDisplay && (
             <button type="button" onClick={onFullscreen} className="mode-icon-button" title={`Open ${meta.label} full screen`} aria-label={`Open ${meta.label} full screen`}>
               <Maximize2 size={14} />
@@ -632,9 +696,18 @@ function AppShellContent() {
     }
   };
 
+  useEffect(() => {
+    const openFullscreen = (event: Event) => {
+      const requestedMode = (event as CustomEvent<CasioMode>).detail;
+      setFullscreenMode(requestedMode || currentMode);
+    };
+    window.addEventListener("casio-fullscreen", openFullscreen);
+    return () => window.removeEventListener("casio-fullscreen", openFullscreen);
+  }, [currentMode]);
+
   return (
     <div
-      className="flex h-screen w-screen overflow-hidden"
+      className="app-shell flex h-screen w-screen overflow-hidden"
       style={{ background: "radial-gradient(ellipse at 50% 40%, #141c2a 0%, #0c0e14 60%, #080a10 100%)" }}
     >
       <div className="flex flex-1 overflow-hidden h-full">
