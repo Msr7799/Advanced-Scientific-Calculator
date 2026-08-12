@@ -167,9 +167,18 @@ function ZoomPanel({
   showExpanded: boolean;
   onToggleExpanded: () => void;
 }) {
+  const atMinimum = scale <= 0.6;
+  const atMaximum = scale >= 1.5;
+
+  const controlStyle = {
+    background: "#0d1828",
+    color: "#70a8dc",
+    border: "1px solid #243b5a",
+  };
+
   return (
     <div
-      className="flex flex-col items-center gap-3 py-5 px-2 shrink-0"
+      className="flex flex-col items-center gap-2 py-4 px-2 shrink-0"
       style={{
         width: 52,
         background: "rgba(8,14,24,0.75)",
@@ -180,7 +189,7 @@ function ZoomPanel({
       {/* Expand display toggle */}
       <button
         onClick={onToggleExpanded}
-        className="w-9 h-9 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer hover:brightness-125 active:scale-90"
+        className="w-9 h-9 flex items-center justify-center rounded-md transition-all cursor-pointer hover:brightness-125 active:scale-95"
         style={{
           background: showExpanded ? "#1a3a60" : "#0d1828",
           color: showExpanded ? "#80c8ff" : "#3a6090",
@@ -194,18 +203,14 @@ function ZoomPanel({
       </button>
 
       {/* Divider */}
-      <div className="w-6 h-px" style={{ background: "#1a2840" }} />
+      <div className="w-7 h-px my-1" style={{ background: "#1a2840" }} />
 
       {/* Zoom In */}
       <button
         onClick={onZoomIn}
-        className="w-9 h-9 flex items-center justify-center rounded-xl font-black transition-all cursor-pointer hover:brightness-125 active:scale-90"
-        style={{
-          background: "#0d1828",
-          color: "#5a90c8",
-          border: "1px solid #1e3050",
-          fontSize: 18,
-        }}
+        disabled={atMaximum}
+        className="w-9 h-9 flex items-center justify-center rounded-md font-black transition-all cursor-pointer hover:brightness-125 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+        style={{ ...controlStyle, fontSize: 20 }}
         title="Zoom In"
       >
         +
@@ -214,50 +219,30 @@ function ZoomPanel({
       {/* Percent indicator */}
       <button
         onClick={onReset}
-        className="w-9 flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 font-mono font-bold cursor-pointer transition-all hover:brightness-125"
+        className="w-9 h-9 flex items-center justify-center rounded-md font-mono font-bold cursor-pointer transition-all hover:brightness-125 active:scale-95"
         style={{
           background: "#0a1420",
           color: "#3a6090",
           border: "1px solid #1a2840",
-          fontSize: 10,
+          fontSize: 9,
           lineHeight: 1,
         }}
         title="Reset zoom & position"
       >
-        <span style={{ color: "#5a90c8", fontSize: 13, fontWeight: 900 }}>
-          {Math.round(scale * 100)}
-        </span>
-        <span style={{ color: "#2a4060", fontSize: 8 }}>%</span>
-        <span style={{ color: "#1e3050", fontSize: 7, marginTop: 2 }}>RESET</span>
+        {Math.round(scale * 100)}%
       </button>
 
       {/* Zoom Out */}
       <button
         onClick={onZoomOut}
-        className="w-9 h-9 flex items-center justify-center rounded-xl font-black transition-all cursor-pointer hover:brightness-125 active:scale-90"
-        style={{
-          background: "#0d1828",
-          color: "#5a90c8",
-          border: "1px solid #1e3050",
-          fontSize: 18,
-        }}
+        disabled={atMinimum}
+        className="w-9 h-9 flex items-center justify-center rounded-md font-black transition-all cursor-pointer hover:brightness-125 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+        style={{ ...controlStyle, fontSize: 20 }}
         title="Zoom Out"
       >
         −
       </button>
 
-      {/* Divider */}
-      <div className="w-6 h-px" style={{ background: "#1a2840" }} />
-
-      {/* Scroll hint */}
-      <div
-        className="flex flex-col items-center gap-1"
-        style={{ color: "#1e3050" }}
-        title="Scroll wheel to zoom"
-      >
-        <span style={{ fontSize: 14 }}>⊛</span>
-        <span style={{ fontSize: 7, fontFamily: "monospace", letterSpacing: "0.05em" }}>SCROLL</span>
-      </div>
     </div>
   );
 }
@@ -307,14 +292,14 @@ function DraggableCalculator({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      setScale((s) => Math.min(2, Math.max(0.4, s - e.deltaY * 0.001)));
+      setScale((s) => Math.min(1.5, Math.max(0.6, s - e.deltaY * 0.001)));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  const zoomIn  = () => setScale((s) => Math.min(2,   parseFloat((s + 0.1).toFixed(2))));
-  const zoomOut = () => setScale((s) => Math.max(0.4, parseFloat((s - 0.1).toFixed(2))));
+  const zoomIn  = () => setScale((s) => Math.min(1.5, parseFloat((s + 0.1).toFixed(2))));
+  const zoomOut = () => setScale((s) => Math.max(0.6, parseFloat((s - 0.1).toFixed(2))));
   const zoomReset = () => { setScale(1); setPos({ x: 0, y: 0 }); };
 
   return (

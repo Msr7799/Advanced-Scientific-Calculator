@@ -223,7 +223,7 @@ pnpm add mathjs nerdamer mathlive jstat
 ```
 
 ثم:
-
+ 
 - أضف Desmos
 - أضف Pyodide
 - اربطها بالبنية الحالية

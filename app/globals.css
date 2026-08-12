@@ -230,6 +230,27 @@ html, body {
   text-transform: uppercase;
 }
 
+.fkey-screen-button {
+  min-width: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.08s ease, color 0.08s ease;
+}
+
+.fkey-screen-button:hover:not(:disabled),
+.fkey-screen-button:focus-visible {
+  background: rgba(84, 148, 232, 0.2);
+  color: #a8d4ff !important;
+}
+
+.fkey-screen-button:active:not(:disabled) {
+  background: rgba(84, 148, 232, 0.34);
+}
+
+.fkey-screen-button:disabled {
+  cursor: default;
+}
+
 /* ══════════════════════════════════════════════════
    MENU SCREEN ICONS
 ══════════════════════════════════════════════════ */

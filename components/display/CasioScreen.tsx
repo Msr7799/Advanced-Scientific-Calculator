@@ -48,6 +48,7 @@ interface CasioScreenProps {
   result: string;
   isError: boolean;
   fKeyLabels?: FKeyLabel[];
+  onFKey?: (key: string) => void;
   /** Screen content to render instead of default calc view (for graph/menu etc.) */
   children?: React.ReactNode;
   /** Custom title shown in status bar */
@@ -69,6 +70,7 @@ export default function CasioScreen({
   result,
   isError,
   fKeyLabels = DEFAULT_FKEYS,
+  onFKey,
   children,
   modeTitle = "RUN-MAT",
 }: CasioScreenProps) {
@@ -129,13 +131,17 @@ export default function CasioScreen({
       {/* ── F-key label strip ─────────────────────────── */}
       <div className="fkey-bar grid grid-cols-6 shrink-0 select-none border-t border-white/5" style={{ background: "rgba(8,18,36,0.3)" }}>
         {fKeyLabels.map((fk) => (
-          <div
+          <button
+            type="button"
             key={fk.key}
-            className="fkey-label py-[4px] border-r border-white/5 last:border-r-0 truncate px-0.5 text-center font-bold tracking-wider"
+            onClick={() => onFKey?.(fk.key.toLowerCase())}
+            disabled={!onFKey}
+            className="fkey-label fkey-screen-button py-[4px] border-r border-white/5 last:border-r-0 truncate px-0.5 text-center font-bold tracking-wider"
             style={{ color: fk.color ?? "#70a8e0", fontSize: 10 }}
+            aria-label={`${fk.key}: ${fk.label}`}
           >
             {fk.label}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -164,17 +170,14 @@ function DefaultCalcView({
           style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}
         >
           {expression.length === 0 ? (
-            <span className="text-[#4a6a9a] text-[13px]">
-              Ready
-              <span
-                className="inline-block w-[2px] h-[14px] ml-1 align-middle rounded-sm"
-                style={{
-                  background: "#80c8ff",
-                  opacity: tick ? 1 : 0,
-                  transition: "opacity 0.08s",
-                }}
-              />
-            </span>
+            <span
+              className="inline-block w-[2px] h-[14px] align-middle rounded-sm"
+              style={{
+                background: "#80c8ff",
+                opacity: tick ? 1 : 0,
+                transition: "opacity 0.08s",
+              }}
+            />
           ) : (
             <>
               {tokens.map((t, i) => (

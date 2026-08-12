@@ -252,7 +252,7 @@ function DPad({ onNav }: { onNav: (dir: string) => void }) {
 }
 
 // ─── F-key bar ────────────────────────────────────────────
-function FKeyBar({ onFKey, shiftActive }: { onFKey: (key: string) => void; shiftActive: boolean }) {
+function FKeyBar({ onFKey }: { onFKey: (key: string) => void }) {
   return (
     <div className="grid grid-cols-6 gap-[6px]">
       {F_KEYS.map((fk) => (
@@ -287,7 +287,7 @@ export default function CalculatorShell() {
   const dispatch = useCalculatorDispatch();
   const appState = useAppState();
   const [isError, setIsError] = useState(false);
-  const [fKeyMenu, setFKeyMenu] = useState<"main" | "calc" | "algb" | "optn" | "vars">("main");
+  const [fKeyMenu, setFKeyMenu] = useState<"main" | "more" | "calc" | "algb" | "optn" | "vars">("main");
 
   const currentFKeyLabels = useMemo(() => {
     switch (fKeyMenu) {
@@ -326,6 +326,15 @@ export default function CalculatorShell() {
           { key: "F4", label: "Y" },
           { key: "F5", label: "Z" },
           { key: "F6", label: "BACK" },
+        ];
+      case "more":
+        return [
+          { key: "F1", label: "ANGLE" },
+          { key: "F2", label: "RCL" },
+          { key: "F3", label: "STO" },
+          { key: "F4", label: "M+" },
+          { key: "F5", label: "M−" },
+          { key: "F6", label: "◀" },
         ];
       default:
         return [
@@ -530,6 +539,7 @@ export default function CalculatorShell() {
       // ── F-keys (dynamic sub-menu navigation and token insertion) ─────────
       case "f1":
         if (fKeyMenu === "main") setFKeyMenu("calc");
+        else if (fKeyMenu === "more") store.cycleAngleMode();
         else if (fKeyMenu === "calc") append("integrate(");
         else if (fKeyMenu === "algb") append("simplify(");
         else if (fKeyMenu === "optn") append("abs(");
@@ -537,6 +547,7 @@ export default function CalculatorShell() {
         break;
       case "f2":
         if (fKeyMenu === "main") setFKeyMenu("algb");
+        else if (fKeyMenu === "more") append(String(store.recallMemory()));
         else if (fKeyMenu === "calc") append("derivative(");
         else if (fKeyMenu === "algb") append("factor(");
         else if (fKeyMenu === "optn") append("gcd(");
@@ -544,6 +555,7 @@ export default function CalculatorShell() {
         break;
       case "f3":
         if (fKeyMenu === "main") setFKeyMenu("optn");
+        else if (fKeyMenu === "more") store.storeMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("derivative(derivative(");
         else if (fKeyMenu === "algb") append("expand(");
         else if (fKeyMenu === "optn") append("lcm(");
@@ -551,6 +563,7 @@ export default function CalculatorShell() {
         break;
       case "f4":
         if (fKeyMenu === "main") setMode("MENU");
+        else if (fKeyMenu === "more") store.addMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("solve(");
         else if (fKeyMenu === "algb") append("x");
         else if (fKeyMenu === "optn") append("mod(");
@@ -558,6 +571,7 @@ export default function CalculatorShell() {
         break;
       case "f5":
         if (fKeyMenu === "main") setFKeyMenu("vars");
+        else if (fKeyMenu === "more") store.subtractMemory(Number(calcState.result) || 0);
         else if (fKeyMenu === "calc") append("sum(");
         else if (fKeyMenu === "algb") append("y");
         else if (fKeyMenu === "optn") append("log(");
@@ -565,7 +579,7 @@ export default function CalculatorShell() {
         break;
       case "f6":
         if (fKeyMenu === "main") {
-          // main ▶ button: cycles or loops
+          setFKeyMenu("more");
         } else {
           setFKeyMenu("main");
         }
@@ -721,6 +735,7 @@ export default function CalculatorShell() {
                   isError={isError}
                   modeTitle="RUN-MAT"
                   fKeyLabels={currentFKeyLabels}
+                  onFKey={handleClick}
                 />
               )}
             </motion.div>
@@ -730,7 +745,7 @@ export default function CalculatorShell() {
 
       {/* ── F-Key Row ─────────────────────────────────── */}
       <div className="px-1 shrink-0" style={{ marginBottom: 16 }}>
-        <FKeyBar onFKey={(k) => handleClick(k)} shiftActive={shiftActive} />
+        <FKeyBar onFKey={handleClick} />
       </div>
 
       {/* ── Main keypad + D-pad ───────────────────────── */}
