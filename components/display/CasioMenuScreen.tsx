@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useCasioStore } from "@/store/calculatorStore";
 import type { CasioMode } from "@/types/calculator";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 // ─── Menu app definitions ────────────────────────────────────────────────────
 interface MenuApp {
@@ -100,16 +101,31 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
               </span>
 
               {/* Icon */}
-              <span
-                className="text-[18px] leading-none"
-                style={{
-                  color: isActive ? app.color : app.color + "bb",
-                  textShadow: isActive ? `0 0 8px ${app.color}88` : "none",
-                  filter: isActive ? "brightness(1.2)" : "brightness(0.85)",
-                }}
-              >
-                {app.icon}
-              </span>
+              {app.id === "PYTHON" ? (
+                <Image
+                  src="/Python-Logo.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={26}
+                  height={26}
+                  unoptimized
+                  className="h-[26px] w-[26px] object-contain"
+                  style={{
+                    filter: isActive ? "brightness(1.15)" : "brightness(0.82)",
+                  }}
+                />
+              ) : (
+                <span
+                  className="text-[18px] leading-none"
+                  style={{
+                    color: isActive ? app.color : app.color + "bb",
+                    textShadow: isActive ? `0 0 8px ${app.color}88` : "none",
+                    filter: isActive ? "brightness(1.2)" : "brightness(0.85)",
+                  }}
+                >
+                  {app.icon}
+                </span>
+              )}
 
               {/* Label */}
               <span

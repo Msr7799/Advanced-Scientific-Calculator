@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { AppProvider } from "@/lib/state/appState";
 import { CalculatorProvider, useCalculatorState } from "@/lib/state/calculatorState";
 import { useCasioStore } from "@/store/calculatorStore";
@@ -50,9 +51,23 @@ function ModeHeader({ mode, onBack }: { mode: CasioMode; onBack: () => void }) {
       >
         ← MENU
       </button>
-      <div className="font-bold tracking-[0.2em]" style={{ color: meta.color, fontSize: 14 }}>
-        {meta.label}
-      </div>
+      {mode === "PYTHON" ? (
+        <div className="flex h-7 items-center" aria-label="Python">
+          <Image
+            src="/Python-Logo-3.svg"
+            alt=""
+            aria-hidden="true"
+            width={94}
+            height={28}
+            unoptimized
+            className="h-7 w-[94px] object-contain object-left"
+          />
+        </div>
+      ) : (
+        <div className="font-bold tracking-[0.2em]" style={{ color: meta.color, fontSize: 14 }}>
+          {meta.label}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FilePlus2, Play, RotateCcw, Save, Trash2 } from "lucide-react";
+import Image from "next/image";
 import type { PyodideInterface } from "pyodide";
 
 interface PythonFile { name: string; code: string }
@@ -12,6 +13,53 @@ const DEFAULT_FILES: PythonFile[] = [
 ];
 
 const STORAGE_KEY = "fx-cg50-python-files";
+const PYODIDE_CDN_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/";
+
+type LoadPyodide = typeof import("pyodide")["loadPyodide"];
+
+async function loadPyodideFromCdn(): Promise<PyodideInterface> {
+  // Keep this import native so Turbopack does not rewrite Pyodide's internal
+  // package imports into an unresolved dynamic module expression.
+  const importFromUrl = new Function("url", "return import(url)") as (
+    url: string,
+  ) => Promise<{ loadPyodide: LoadPyodide }>;
+  const { loadPyodide } = await importFromUrl(`${PYODIDE_CDN_URL}pyodide.mjs`);
+  return loadPyodide({ indexURL: PYODIDE_CDN_URL });
+}
+
+export async function executePython(
+  runtime: PyodideInterface,
+  source: string,
+  filename: string,
+): Promise<string> {
+  runtime.globals.set("__calculator_source__", source);
+  runtime.globals.set("__calculator_filename__", filename);
+
+  try {
+    const result = await runtime.runPythonAsync(`
+import contextlib
+import io
+
+__calculator_output__ = io.StringIO()
+with contextlib.redirect_stdout(__calculator_output__), contextlib.redirect_stderr(__calculator_output__):
+    exec(compile(__calculator_source__, __calculator_filename__, "exec"), globals())
+__calculator_output__.getvalue()
+`);
+    return String(result ?? "");
+  } finally {
+    runtime.globals.delete("__calculator_source__");
+    runtime.globals.delete("__calculator_filename__");
+    runtime.globals.delete("__calculator_output__");
+  }
+}
+
+function outputLines(text: string): string[] {
+  const normalized = text.replace(/\r\n?/g, "\n");
+  const withoutTrailingNewline = normalized.endsWith("\n")
+    ? normalized.slice(0, -1)
+    : normalized;
+  return withoutTrailingNewline ? withoutTrailingNewline.split("\n") : [];
+}
 
 export default function PythonMode() {
   const [files, setFiles] = useState<PythonFile[]>(DEFAULT_FILES);
@@ -70,27 +118,18 @@ export default function PythonMode() {
   const runPython = async () => {
     setStatus(runtimeRef.current ? "running" : "loading");
     setOutput([]);
-    const lines: string[] = [];
     try {
       if (!runtimeRef.current) {
-        const { loadPyodide } = await import("pyodide");
-        runtimeRef.current = await loadPyodide({
-          indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/",
-          stdout: (message) => { lines.push(message); setOutput([...lines]); },
-          stderr: (message) => { lines.push(message); setOutput([...lines]); },
-        });
+        runtimeRef.current = await loadPyodideFromCdn();
       }
       setStatus("running");
-      runtimeRef.current.setStdout({ batched: (message) => { lines.push(message); setOutput([...lines]); } });
-      runtimeRef.current.setStderr({ batched: (message) => { lines.push(message); setOutput([...lines]); } });
-      const value = await runtimeRef.current.runPythonAsync(activeFile.code);
-      if (value !== undefined && value !== null) lines.push(String(value));
-      if (lines.length === 0) lines.push("Program finished with no output.");
-      setOutput([...lines]);
+      await runtimeRef.current.loadPackagesFromImports(activeFile.code);
+      const text = await executePython(runtimeRef.current, activeFile.code, activeFile.name);
+      const lines = outputLines(text);
+      setOutput(lines.length > 0 ? lines : ["Program finished with no output."]);
       setStatus("idle");
     } catch (error) {
-      lines.push(error instanceof Error ? error.message : "Python execution failed");
-      setOutput([...lines]);
+      setOutput([error instanceof Error ? error.message : "Python execution failed"]);
       setStatus("error");
     }
   };
@@ -98,7 +137,14 @@ export default function PythonMode() {
   return (
     <div className="flex h-full min-w-0 flex-col bg-[#07101a] text-[#c8d8e8]">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[#20334a] bg-[#0c1725] px-3">
-        <span className="text-[11px] font-black tracking-[0.2em] text-[#4bd59a]">PYTHON</span>
+        <Image
+          src="/Python-Logo-3.svg"
+          alt="Python"
+          width={82}
+          height={24}
+          unoptimized
+          className="h-6 w-[82px] shrink-0 object-contain object-left"
+        />
         <span className="text-[9px] text-[#526b82]">MicroPython-compatible editor</span>
         <div className="ml-auto flex gap-1.5">
           <button type="button" onClick={createFile} className="mode-icon-button" title="New Python file"><FilePlus2 size={15} /></button>
@@ -138,15 +184,26 @@ export default function PythonMode() {
           }} className="h-full w-full resize-none bg-transparent p-4 font-mono text-[13px] leading-6 text-[#c6e2f5] outline-none selection:bg-[#24547c]" spellCheck={false} aria-label="Python editor" />
         </div>
 
-        <div className="flex min-h-0 flex-col bg-[#030913]">
+        <div className="relative flex min-h-0 flex-col bg-[#030913]">
           <div className="flex h-9 shrink-0 items-center border-b border-[#20334a] px-3 text-[9px] font-bold tracking-[0.18em] text-[#59738e]">
             SHELL
             <span className={`ml-auto h-2 w-2 rounded-full ${status === "error" ? "bg-[#dd5f5f]" : status === "idle" ? "bg-[#3fac78]" : "animate-pulse bg-[#e0b64b]"}`} />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-5 text-[#86d9ae]">
+          <div className="relative z-10 min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-5 text-[#86d9ae]">
             <div className="mb-2 text-[#426078]">Python 3 / Pyodide 314.0.3</div>
             {output.length === 0 ? <span className="text-[#31475d]">&gt;&gt;&gt;</span> : output.map((line, index) => <div key={index} className={status === "error" ? "whitespace-pre-wrap text-[#ec7b7b]" : "whitespace-pre-wrap"}>{line}</div>)}
           </div>
+          {output.length === 0 && (
+            <Image
+              src="/Python-Logo-2.svg"
+              alt=""
+              aria-hidden="true"
+              width={116}
+              height={130}
+              unoptimized
+              className="pointer-events-none absolute left-1/2 top-1/2 h-[130px] w-[116px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.10]"
+            />
+          )}
         </div>
       </div>
 

@@ -32,7 +32,8 @@ function splitArguments(value: string): string[] {
 }
 
 function cursorLatex(visible: boolean): string {
-  return `\\color{${visible ? "#80c8ff" : "transparent"}}{\\rule{1.6px}{1.15em}}`;
+  const cursor = "\\rule{1.6px}{1.15em}";
+  return visible ? `\\color{#80c8ff}{${cursor}}` : `\\phantom{${cursor}}`;
 }
 
 function functionLatex(name: string, argumentSource: string, visibleCursor: boolean): string {
@@ -123,7 +124,7 @@ export function expressionToLatex(value: string, visibleCursor = true): string {
       "*": "\\times ", "×": "\\times ", "/": "\\div ", "÷": "\\div ",
       "+": "+", "-": "-", "−": "-", "=": "=", "%": "\\%",
       "π": "\\pi", "Σ": "\\sum", "∫": "\\int", "→": "\\to",
-      "(": "\\left(", ")": "\\right)", "[": "\\left[", "]": "\\right]",
+      "(": "\\mathopen{(}", ")": "\\mathclose{)}", "[": "\\mathopen{[}", "]": "\\mathclose{]}",
       ",": ",\\,", " ": "\\,",
     };
     latex += replacements[character] ?? character.replace(/[{}_$#&]/g, "\\$&");
@@ -131,6 +132,16 @@ export function expressionToLatex(value: string, visibleCursor = true): string {
   }
 
   return latex;
+}
+
+export function expressionWithCursorToLatex(
+  expression: string,
+  cursorPosition: number,
+  cursorVisible = true,
+): string {
+  const cursor = Math.min(expression.length, Math.max(0, cursorPosition));
+  const source = `${expression.slice(0, cursor)}${CURSOR}${expression.slice(cursor)}`;
+  return expressionToLatex(source, cursorVisible);
 }
 
 interface NaturalMathProps {
@@ -151,11 +162,10 @@ export default function NaturalMath({
   ariaLabel,
 }: NaturalMathProps) {
   const markup = useMemo(() => {
-    const cursor = Math.min(expression.length, Math.max(0, cursorPosition));
-    const source = showCursor
-      ? `${expression.slice(0, cursor)}${CURSOR}${expression.slice(cursor)}`
-      : expression;
-    return katex.renderToString(expressionToLatex(source, cursorVisible), {
+    const latex = showCursor
+      ? expressionWithCursorToLatex(expression, cursorPosition, cursorVisible)
+      : expressionToLatex(expression, cursorVisible);
+    return katex.renderToString(latex, {
       throwOnError: false,
       strict: false,
       trust: false,
