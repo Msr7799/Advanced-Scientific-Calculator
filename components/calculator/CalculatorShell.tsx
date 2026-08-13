@@ -246,15 +246,13 @@ function CalcKey({
     >
       {/* Shift label — yellow, top-left */}
       {btn.shiftLabel && (
-        <span className="casio-shift-label absolute -top-[10px] left-0 w-full text-center text-[8px] font-semibold leading-none truncate px-0.5"
-          style={{ color: "#d4aa2a", letterSpacing: "0.02em" }}>
+        <span className="casio-shift-label absolute -top-[10px] left-0 w-full truncate px-0.5 text-center text-[8px] font-semibold leading-none">
           {btn.shiftLabel}
         </span>
       )}
       {/* Alpha label — red, top-right */}
       {btn.alphaLabel && btn.alphaLabel !== " " && (
-        <span className="casio-alpha-label absolute -top-[10px] right-0.5 text-[8px] font-semibold leading-none"
-          style={{ color: "#e04040", letterSpacing: "0.02em" }}>
+        <span className="casio-alpha-label absolute -top-[10px] right-0.5 text-[8px] font-semibold leading-none">
           {btn.alphaLabel}
         </span>
       )}

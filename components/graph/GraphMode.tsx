@@ -37,6 +37,14 @@ const GRAPH_FKEYS = [
   { key: "F6", label: "G↔T",    color: "#55aaff" },
 ];
 
+function normalizeDecimalInput(value: string): string {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/٫/g, ".")
+    .replace(/−/g, "-");
+}
+
 // Graph line colors matching Casio color scheme
 export default function GraphMode() {
   const { theme } = useTheme();
@@ -257,7 +265,7 @@ export default function GraphMode() {
       >
         {/* F-key bar */}
         <div
-          className="grid grid-cols-6 border-b shrink-0"
+          className="graph-function-bar grid grid-cols-3 border-b shrink-0"
           style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
         >
           {GRAPH_FKEYS.map((fk) => (
@@ -265,8 +273,9 @@ export default function GraphMode() {
               key={fk.key}
               type="button"
               onClick={() => handleFKey(Number(fk.key.slice(1)) - 1)}
-              className="min-h-8 truncate border-r px-1 py-2 text-center text-[8px] font-bold transition-colors hover:bg-[var(--surface-hover)] last:border-r-0"
-              style={{ color: fk.color, borderColor: "var(--border)" }}
+              className="graph-function-button min-h-9 border-r px-0.5 py-2 text-center font-bold transition-colors hover:bg-[var(--surface-hover)] last:border-r-0"
+              style={{ borderColor: "var(--border)" }}
+              title={`${fk.key}: ${fk.label}`}
             >
               {fk.label}
             </button>
@@ -350,8 +359,8 @@ export default function GraphMode() {
       <ContextMenu entries={contextEntries} ariaLabel="Graph actions" className="relative min-w-0 flex-1 overflow-hidden">
        <div className="relative h-full min-w-0 overflow-hidden">
         <AnimatePresence>
-        {showWindow && <motion.div initial={{ opacity: 0, scale: 0.96, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: -4 }} className="absolute left-4 top-4 z-30 grid grid-cols-2 gap-3 rounded-md border border-[#294766] bg-[var(--surface-2)]/95 p-4 shadow-2xl backdrop-blur">
-          {(["left", "right", "bottom", "top"] as const).map((key) => <label key={key} className="text-[9px] uppercase text-[#6f8eaf]">{key}<input type="number" value={bounds[key]} onChange={(event) => applyBounds({ ...bounds, [key]: Number(event.target.value) })} className="mt-1 block w-20 rounded border border-[#294766] bg-[var(--input-bg)] px-2 py-1 text-white" /></label>)}
+        {showWindow && <motion.div initial={{ opacity: 0, scale: 0.96, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: -4 }} className="graph-window-dialog absolute left-4 top-4 z-30 grid grid-cols-2 gap-3 rounded-md border bg-[var(--surface-2)]/95 p-4 shadow-2xl backdrop-blur">
+          {(["left", "right", "bottom", "top"] as const).map((key) => <label key={`${key}-${bounds[key]}`} className="text-[9px] uppercase text-[var(--text-muted)]">{key}<input type="text" inputMode="decimal" lang="en" dir="ltr" defaultValue={String(bounds[key])} onBlur={(event) => { const value = Number(normalizeDecimalInput(event.target.value)); if (Number.isFinite(value)) applyBounds({ ...bounds, [key]: value }); else event.target.value = String(bounds[key]); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} className="mt-1 block w-24 rounded border bg-[var(--input-bg)] px-2 py-1.5 font-mono text-[var(--text)]" /></label>)}
           <button type="button" onClick={() => setShowWindow(false)} className="col-span-2 min-h-8 rounded border border-[#315779] text-[10px] font-bold text-[#79aed8] hover:bg-[var(--surface-hover)]">DONE</button>
         </motion.div>}
         </AnimatePresence>

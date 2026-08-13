@@ -187,6 +187,28 @@ export default function PythonMode() {
     status === "loading" || status === "running" ? stopPython : runPython,
   ]);
 
+  useEffect(() => {
+    const onFilesChanged = (event: Event) => {
+      const nextFiles = (event as CustomEvent<PythonFile[]>).detail;
+      if (!Array.isArray(nextFiles) || nextFiles.length === 0) return;
+      setFiles(nextFiles);
+      setActiveIndex((index) => Math.min(index, nextFiles.length - 1));
+    };
+    const onRunRequested = (event: Event) => {
+      const filename = String((event as CustomEvent<string>).detail ?? "");
+      const index = files.findIndex((file) => file.name.toLowerCase() === filename.toLowerCase());
+      if (index < 0) return;
+      setActiveIndex(index);
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("casio-fkey", { detail: "F6" })), 100);
+    };
+    window.addEventListener("casio-python-files-changed", onFilesChanged);
+    window.addEventListener("casio-python-run", onRunRequested);
+    return () => {
+      window.removeEventListener("casio-python-files-changed", onFilesChanged);
+      window.removeEventListener("casio-python-run", onRunRequested);
+    };
+  }, [files]);
+
   return (
     <div className="flex h-full min-w-0 flex-col bg-[var(--surface-1)] text-[#c8d8e8]">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-2)] px-3">

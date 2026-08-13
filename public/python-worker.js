@@ -33,11 +33,23 @@ function formatError(error) {
 }
 
 self.onmessage = async ({ data }) => {
-  if (data.type !== "run") return;
+  if (data.type !== "run" && data.type !== "validate") return;
   const output = [];
   try {
     self.postMessage({ type: "status", status: "loading", id: data.id });
     const runtime = await getRuntime();
+    if (data.type === "validate") {
+      runtime.globals.set("__agent_source__", data.source);
+      runtime.globals.set("__agent_filename__", data.filename);
+      try {
+        runtime.runPython('compile(__agent_source__, __agent_filename__, "exec")');
+      } finally {
+        runtime.globals.delete("__agent_source__");
+        runtime.globals.delete("__agent_filename__");
+      }
+      self.postMessage({ type: "validated", id: data.id });
+      return;
+    }
     runtime.setStdout({ batched: (text) => output.push(text) });
     runtime.setStderr({ batched: (text) => output.push(text) });
     await runtime.loadPackagesFromImports(data.source);

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { GripVertical, LayoutGrid, Maximize2, Minimize2, MoveHorizontal, X } from "lucide-react";
+import { GripVertical, LayoutGrid, Maximize2, Minimize2, MoveHorizontal, Sparkles, X } from "lucide-react";
 import { CalculatorProvider, useCalculatorState } from "@/lib/state/calculatorState";
 import { useCasioStore } from "@/store/calculatorStore";
 import CalculatorShell from "@/components/calculator/CalculatorShell";
@@ -22,6 +22,8 @@ import { RUN_MAT_FKEY_LABELS } from "@/lib/keyboard/runMatFKeys";
 import { ToastProvider } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeTogglerButton } from "@/components/theme/ThemeTogglerButton";
+import AgentPanel from "@/components/agent/AgentPanel";
+import { useAgentStore } from "@/store/agentStore";
 
 // ─── Mode meta ────────────────────────────────────────────────────────────────
 const MODE_META: Record<CasioMode, { label: string; color: string }> = {
@@ -140,6 +142,7 @@ function HistorySidebar() {
           </motion.div>
         )}
       </AnimatePresence>
+      <AgentPanel />
     </div>
   );
 }
@@ -184,6 +187,8 @@ function ZoomPanel({
   showExpanded: boolean;
   onToggleExpanded: () => void;
 }) {
+  const agentOpen = useAgentStore((state) => state.open);
+  const setAgentOpen = useAgentStore((state) => state.setOpen);
   const atMinimum = scale <= 0.6;
   const atMaximum = scale >= 1.5;
 
@@ -262,6 +267,20 @@ function ZoomPanel({
         title="Zoom Out"
       >
         −
+      </button>
+
+      <div className="w-7 h-px my-1" style={{ background: "var(--border)" }} />
+
+      <button
+        type="button"
+        onClick={() => setAgentOpen(!agentOpen)}
+        className={`zoom-agent-button ${agentOpen ? "active" : ""}`}
+        title={agentOpen ? "Close calculator AI" : "Chat with calculator AI"}
+        aria-label={agentOpen ? "Close calculator AI" : "Chat with calculator AI"}
+        aria-pressed={agentOpen}
+      >
+        <Sparkles size={17} />
+        <span>AI</span>
       </button>
 
     </div>
