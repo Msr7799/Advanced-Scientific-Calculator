@@ -54,9 +54,9 @@ export default function CasioModeScreen({ mode }: { mode: WorkspaceMode }) {
         </div>
         <div className="mt-auto text-[8px] text-[#557392]">Use F1-F6 or the expanded display</div>
       </div>
-      <div className="grid shrink-0 grid-cols-6 border-t border-white/5 bg-[#081224]/40">
+      <div className="mode-screen-fkey-bar grid h-[18px] shrink-0 grid-cols-6 overflow-hidden border-t border-white/5 bg-[#081224]/40">
         {details.softkeys.map((label, index) => (
-          <button type="button" key={index} onClick={() => dispatchCasioFKey(`F${index + 1}`)} className="truncate border-r border-white/5 px-0.5 py-1 text-center text-[7px] font-bold transition-colors hover:bg-white/10 active:bg-white/20 last:border-r-0" style={{ color: details.color }} aria-label={`F${index + 1}: ${label}`}>
+          <button type="button" key={index} onClick={() => dispatchCasioFKey(`F${index + 1}`)} className="mode-screen-fkey truncate border-r border-white/5 text-center font-bold transition-colors hover:bg-white/10 active:bg-white/20 last:border-r-0" style={{ color: details.color }} aria-label={`F${index + 1}: ${label}`}>
             {label}
           </button>
         ))}

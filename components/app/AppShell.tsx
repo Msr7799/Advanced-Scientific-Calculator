@@ -18,6 +18,7 @@ import PythonMode from "@/components/modes/PythonMode";
 import type { CasioMode } from "@/types/calculator";
 import { dispatchRunMatFKey } from "@/lib/keyboard/useCasioFKeys";
 import { RUN_MAT_FKEY_LABELS } from "@/lib/keyboard/runMatFKeys";
+import { ToastProvider } from "@/components/ui/toast";
 
 // ─── Mode meta ────────────────────────────────────────────────────────────────
 const MODE_META: Record<CasioMode, { label: string; color: string }> = {
@@ -768,7 +769,9 @@ function AppShellContent() {
 export default function AppShell() {
   return (
     <CalculatorProvider>
-      <AppShellContent />
+      <ToastProvider>
+        <AppShellContent />
+      </ToastProvider>
     </CalculatorProvider>
   );
 }
