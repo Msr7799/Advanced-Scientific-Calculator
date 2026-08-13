@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCasioStore } from "@/store/calculatorStore";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { calculate } from "@/lib/math/engine";
 import { ContextMenu, type ContextMenuEntry } from "@/components/ui/context-menu";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,6 +39,7 @@ const GRAPH_FKEYS = [
 
 // Graph line colors matching Casio color scheme
 export default function GraphMode() {
+  const { theme } = useTheme();
   const calcRef = useRef<HTMLDivElement>(null);
   const desmosRef = useRef<DesmosInstance | null>(null);
   const { graphEquations, setGraphEquation, addGraphEquation, removeGraphEquation, toggleGraphEquation, setMode } = useCasioStore();
@@ -68,8 +70,8 @@ export default function GraphMode() {
             expressions: false,
             zoomButtons: true,
             border: false,
-            backgroundColor: "#0a1828",
-            textColor: "#80b8e8",
+            backgroundColor: theme === "light" ? "#ffffff" : "#151515",
+            textColor: theme === "light" ? "#334155" : "#80b8e8",
             pasteGraphLink: false,
             links: false,
             qwertyKeyboard: false,
@@ -89,7 +91,7 @@ export default function GraphMode() {
       clearInterval(interval);
       desmosRef.current?.destroy();
     };
-  }, []);
+  }, [theme]);
 
   // ── Sync equations to Desmos ──────────────────────────────────────────────
   useEffect(() => {
@@ -246,39 +248,39 @@ export default function GraphMode() {
   ], [addGraphEquation, clearEquations, exportGraph, graphEquations, handleFKey, resetGraph, setMode, showAxes, showGrid, traceMode, zoomGraph]);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="graph-workspace flex h-full overflow-hidden" style={{ background: "#080e18" }}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="graph-workspace flex h-full overflow-hidden" style={{ background: "var(--surface-1)" }}>
 
       {/* ── Equation list (left panel) ─────────────────────────── */}
       <div
         className="flex w-60 shrink-0 flex-col overflow-hidden border-r"
-        style={{ borderColor: "#1a2840", background: "#0a1220" }}
+        style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
       >
         {/* F-key bar */}
         <div
           className="grid grid-cols-6 border-b shrink-0"
-          style={{ borderColor: "#1a2840", background: "#06101c" }}
+          style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
         >
           {GRAPH_FKEYS.map((fk) => (
             <button
               key={fk.key}
               type="button"
               onClick={() => handleFKey(Number(fk.key.slice(1)) - 1)}
-              className="min-h-8 truncate border-r px-1 py-2 text-center text-[8px] font-bold transition-colors hover:bg-[#10243a] last:border-r-0"
-              style={{ color: fk.color, borderColor: "#1a2840" }}
+              className="min-h-8 truncate border-r px-1 py-2 text-center text-[8px] font-bold transition-colors hover:bg-[var(--surface-hover)] last:border-r-0"
+              style={{ color: fk.color, borderColor: "var(--border)" }}
             >
               {fk.label}
             </button>
           ))}
         </div>
 
-        <div className="shrink-0 border-b px-4 py-3 text-[9px] font-bold tracking-[0.25em]" style={{ color: "#4f6c8a", borderColor: "#1a2840" }}>
+        <div className="shrink-0 border-b px-4 py-3 text-[9px] font-bold tracking-[0.25em]" style={{ color: "#4f6c8a", borderColor: "var(--border)" }}>
           EQUATIONS
         </div>
 
         {/* Equation inputs */}
         <div className="panel-scroll flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {graphEquations.map((eq, idx) => (
-            <motion.div layout key={eq.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="rounded-md border border-[#172a40] bg-[#08111e] p-2.5">
+            <motion.div layout key={eq.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-2.5">
               <div className="mb-2 flex items-center gap-2">
                 {/* Color dot / visibility toggle */}
                 <button
@@ -302,8 +304,8 @@ export default function GraphMode() {
                 onBlur={() => setActiveEq(null)}
                 className="w-full rounded px-3 py-2 text-[12px] font-mono transition-all"
                 style={{
-                  background: "#080e18",
-                  border: `1px solid ${activeEq === eq.id ? eq.color + "88" : "#1a2840"}`,
+                  background: "var(--surface-1)",
+                  border: `1px solid ${activeEq === eq.id ? eq.color + "88" : "var(--border)"}`,
                   color: eq.color,
                   outline: "none",
                   boxShadow: activeEq === eq.id ? `0 0 6px ${eq.color}22` : "none",
@@ -318,9 +320,9 @@ export default function GraphMode() {
               onClick={addGraphEquation}
               className="mt-2 min-h-10 w-full rounded px-3 py-2.5 text-[10px] font-bold transition-all hover:border-[#315779] hover:text-[#79aed8]"
               style={{
-                background: "#0a1828",
+                background: "var(--surface-3)",
                 color: "#2a4060",
-                border: "1px dashed #1a2840",
+                border: "1px dashed var(--border)",
               }}
             >
               + Add Y{graphEquations.length + 1}
@@ -329,14 +331,14 @@ export default function GraphMode() {
         </div>
 
         {/* Graph controls */}
-        <div className="shrink-0 space-y-1.5 border-t p-3" style={{ borderColor: "#1a2840" }}>
+        <div className="shrink-0 space-y-1.5 border-t p-3" style={{ borderColor: "var(--border)" }}>
           <button
             onClick={() => setTraceMode((v) => !v)}
             className="w-full rounded py-1.5 text-[10px] font-bold transition-all"
             style={{
-              background: traceMode ? "#1a3a60" : "#0a1828",
+              background: traceMode ? "#1a3a60" : "var(--surface-3)",
               color: traceMode ? "#70b8ff" : "#2a4060",
-              border: `1px solid ${traceMode ? "#2a5080" : "#1a2840"}`,
+              border: `1px solid ${traceMode ? "#2a5080" : "var(--border)"}`,
             }}
           >
             {traceMode ? "✓ TRACE ON" : "TRACE"}
@@ -348,23 +350,23 @@ export default function GraphMode() {
       <ContextMenu entries={contextEntries} ariaLabel="Graph actions" className="relative min-w-0 flex-1 overflow-hidden">
        <div className="relative h-full min-w-0 overflow-hidden">
         <AnimatePresence>
-        {showWindow && <motion.div initial={{ opacity: 0, scale: 0.96, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: -4 }} className="absolute left-4 top-4 z-30 grid grid-cols-2 gap-3 rounded-md border border-[#294766] bg-[#071322]/95 p-4 shadow-2xl backdrop-blur">
-          {(["left", "right", "bottom", "top"] as const).map((key) => <label key={key} className="text-[9px] uppercase text-[#6f8eaf]">{key}<input type="number" value={bounds[key]} onChange={(event) => applyBounds({ ...bounds, [key]: Number(event.target.value) })} className="mt-1 block w-20 rounded border border-[#294766] bg-[#020817] px-2 py-1 text-white" /></label>)}
-          <button type="button" onClick={() => setShowWindow(false)} className="col-span-2 min-h-8 rounded border border-[#315779] text-[10px] font-bold text-[#79aed8] hover:bg-[#10283e]">DONE</button>
+        {showWindow && <motion.div initial={{ opacity: 0, scale: 0.96, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: -4 }} className="absolute left-4 top-4 z-30 grid grid-cols-2 gap-3 rounded-md border border-[#294766] bg-[var(--surface-2)]/95 p-4 shadow-2xl backdrop-blur">
+          {(["left", "right", "bottom", "top"] as const).map((key) => <label key={key} className="text-[9px] uppercase text-[#6f8eaf]">{key}<input type="number" value={bounds[key]} onChange={(event) => applyBounds({ ...bounds, [key]: Number(event.target.value) })} className="mt-1 block w-20 rounded border border-[#294766] bg-[var(--input-bg)] px-2 py-1 text-white" /></label>)}
+          <button type="button" onClick={() => setShowWindow(false)} className="col-span-2 min-h-8 rounded border border-[#315779] text-[10px] font-bold text-[#79aed8] hover:bg-[var(--surface-hover)]">DONE</button>
         </motion.div>}
         </AnimatePresence>
         {/* Desmos container */}
         <div
           ref={calcRef}
           className="absolute inset-0"
-          style={{ background: "#0a1828" }}
+          style={{ background: "var(--surface-3)" }}
         />
 
         {/* Overlay: loading / fallback */}
         {!desmosReady && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10"
-            style={{ background: "#080e18" }}
+            style={{ background: "var(--surface-1)" }}
           >
             {/* SVG fallback graph */}
             <FallbackGraph equations={graphEquations} />
@@ -379,12 +381,12 @@ export default function GraphMode() {
         {/* Mode indicator overlay */}
         <div
           className="absolute top-2 right-2 text-[9px] font-mono font-bold px-2 py-0.5 rounded z-20"
-          style={{ background: "rgba(10,24,40,0.85)", color: "#4488aa", border: "1px solid #1a3050" }}
+          style={{ background: "color-mix(in srgb, var(--surface-2) 85%, transparent)", color: "#4488aa", border: "1px solid var(--border)" }}
         >
           GRAPH Y=
         </div>
         <AnimatePresence>
-          {(graphMessage || traceMode) && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute bottom-4 left-4 z-20 rounded border border-[#294766] bg-[#071322e8] px-3 py-2 font-mono text-[10px] text-[#80c8ff] shadow-lg">{graphMessage || `TRACE x=${traceX}`}</motion.div>}
+          {(graphMessage || traceMode) && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute bottom-4 left-4 z-20 rounded border border-[#294766] bg-[var(--surface-2)] px-3 py-2 font-mono text-[10px] text-[#80c8ff] shadow-lg">{graphMessage || `TRACE x=${traceX}`}</motion.div>}
         </AnimatePresence>
        </div>
       </ContextMenu>
@@ -442,9 +444,9 @@ function FallbackGraph({ equations }: { equations: { id: string; expression: str
       className="w-full"
       style={{ maxWidth: 500, maxHeight: 300 }}
     >
-      <rect width={W} height={H} fill="#080e18" />
+      <rect width={W} height={H} fill="var(--surface-1)" />
       {/* Grid */}
-      <g stroke="#1a2840" strokeWidth="0.5">
+      <g stroke="var(--border)" strokeWidth="0.5">
         {Array.from({ length: 21 }).map((_, i) => (
           <line key={`v${i}`} x1={(i / 20) * W} y1="0" x2={(i / 20) * W} y2={H} />
         ))}

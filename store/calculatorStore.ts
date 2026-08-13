@@ -9,6 +9,8 @@ interface CasioStore {
   previousMode: CasioMode;
   setMode: (mode: CasioMode) => void;
   goBack: () => void;
+  menuSelectedIndex: number;
+  setMenuSelectedIndex: (index: number) => void;
   runMatFKeyMenu: "main" | "more" | "calc" | "algb" | "optn" | "optn2" | "vars";
   setRunMatFKeyMenu: (menu: CasioStore["runMatFKeyMenu"]) => void;
 
@@ -83,6 +85,8 @@ export const useCasioStore = create<CasioStore>()(
         set((s) => ({ currentMode: mode, previousMode: s.currentMode })),
       goBack: () =>
         set((s) => ({ currentMode: s.previousMode, previousMode: "MENU" })),
+      menuSelectedIndex: 0,
+      setMenuSelectedIndex: (index) => set({ menuSelectedIndex: index }),
       runMatFKeyMenu: "main",
       setRunMatFKeyMenu: (menu) => set({ runMatFKeyMenu: menu }),
 

@@ -57,12 +57,12 @@ export default function TableMode() {
   ]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden" style={{ background: "#0a1220" }}>
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: "var(--surface-2)" }}>
      <div className="mode-responsive-split flex min-h-0 flex-1 overflow-hidden">
       {/* Controls */}
       <div
         className="w-56 shrink-0 flex flex-col gap-3 p-4 border-r overflow-y-auto panel-scroll"
-        style={{ borderColor: "#1a2a40" }}
+        style={{ borderColor: "var(--border)" }}
       >
         <div className="text-[10px] font-bold tracking-[0.25em] text-[#3a5878]">TABLE SETTINGS</div>
 
@@ -73,7 +73,7 @@ export default function TableMode() {
             value={expression}
             onChange={(e) => setExpression(e.target.value)}
             className="rounded px-2 py-1.5 text-[12px] font-mono text-white"
-            style={{ background: "#0d1828", border: "1px solid #1e3050", outline: "none" }}
+            style={{ background: "var(--surface-2)", border: "1px solid var(--border-strong)", outline: "none" }}
             placeholder="x^2"
           />
         </label>
@@ -90,7 +90,7 @@ export default function TableMode() {
               value={value}
               onChange={(e) => set(e.target.value)}
               className="rounded px-2 py-1.5 text-[12px] font-mono text-white"
-              style={{ background: "#0d1828", border: "1px solid #1e3050", outline: "none" }}
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-strong)", outline: "none" }}
             />
           </label>
         ))}
@@ -110,7 +110,7 @@ export default function TableMode() {
       <div className="flex-1 overflow-auto panel-scroll p-2">
         <table className="w-full text-[12px] font-mono border-collapse">
           <thead>
-            <tr style={{ borderBottom: "1px solid #1e3050" }}>
+            <tr style={{ borderBottom: "1px solid var(--border-strong)" }}>
               <th className="px-4 py-2 text-left text-[10px] tracking-widest" style={{ color: "#3a5878" }}>X</th>
               <th className="px-4 py-2 text-right text-[10px] tracking-widest" style={{ color: "#3a78a8" }}>
                 f(X) = {expression}
@@ -122,8 +122,8 @@ export default function TableMode() {
               <tr
                 key={i}
                 style={{
-                  borderBottom: "1px solid #0e1c2e",
-                  background: i % 2 === 0 ? "#080e18" : "#0a1220",
+                  borderBottom: "1px solid var(--border)",
+                  background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-2)",
                 }}
               >
                 <td className="px-4 py-1.5 text-left" style={{ color: "#60a8e0" }}>{row.x}</td>
@@ -145,7 +145,7 @@ export default function TableMode() {
         )}
       </div>
      </div>
-      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[var(--border-strong)] bg-[var(--surface-2)]">
         <button type="button" onClick={() => expressionRef.current?.focus()} className="mode-softkey">FORM</button>
         <button type="button" onClick={() => startRef.current?.focus()} className="mode-softkey">START</button>
         <button type="button" onClick={() => endRef.current?.focus()} className="mode-softkey">END</button>

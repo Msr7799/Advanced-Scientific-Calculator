@@ -26,10 +26,10 @@ export default function CasioModeScreen({ mode }: { mode: WorkspaceMode }) {
   const lines = graphLines.length > 0 ? graphLines : details.lines;
 
   return (
-    <div className="casio-lcd casio-lcd-glare lcd-flicker power-on flex h-full flex-col overflow-hidden rounded-[6px]">
+    <div className="casio-lcd casio-lcd-glare lcd-flicker power-on flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[6px]">
       <div className="status-bar flex shrink-0 items-center justify-between px-2 py-[3px]">
         <span className="text-[8px] font-bold tracking-[0.18em]" style={{ color: details.color }}>{details.label}</span>
-        <span className="text-[8px] font-mono text-[#82aada]">{angleMode}</span>
+        <span className="lcd-secondary text-[8px] font-mono">{angleMode}</span>
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col px-3 py-3">
         <div className="flex items-center gap-2 border-b border-white/10 pb-2">
@@ -41,18 +41,18 @@ export default function CasioModeScreen({ mode }: { mode: WorkspaceMode }) {
             </div>
           )}
           <div>
-            <div className="text-[11px] font-black tracking-[0.18em] text-white">{details.label}</div>
-            <div className="text-[7px] text-[#6482a3]">EXPANDED WORKSPACE ACTIVE</div>
+            <div className="lcd-primary text-[11px] font-black tracking-[0.18em]">{details.label}</div>
+            <div className="lcd-muted text-[7px]">EXPANDED WORKSPACE ACTIVE</div>
           </div>
         </div>
         <div className="mt-3 space-y-2 font-mono">
           {lines.map((line, index) => (
-            <div key={`${line}-${index}`} className="truncate border-b border-white/5 pb-1.5 text-[10px]" style={{ color: index === 0 ? "#d7f0ff" : "#7fa5cb" }}>
+            <div key={`${line}-${index}`} className={`truncate border-b border-white/5 pb-1.5 text-[10px] ${index === 0 ? "lcd-primary" : "lcd-secondary"}`}>
               {line}
             </div>
           ))}
         </div>
-        <div className="mt-auto text-[8px] text-[#557392]">Use F1-F6 or the expanded display</div>
+        <div className="lcd-muted mt-auto text-[8px]">Use F1-F6 or the expanded display</div>
       </div>
       <div className="mode-screen-fkey-bar grid h-[18px] shrink-0 grid-cols-6 overflow-hidden border-t border-white/5 bg-[#081224]/40">
         {details.softkeys.map((label, index) => (

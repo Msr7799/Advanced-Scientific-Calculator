@@ -66,7 +66,7 @@ function Histogram({ data, color = "#4488e0" }: { data: number[]; color?: string
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }}>
-      <rect width={W} height={H} fill="#080e18" />
+      <rect width={W} height={H} fill="var(--surface-1)" />
       {counts.map((count, i) => {
         const barH = maxCount > 0 ? (count / maxCount) * (H - 16) : 0;
         return (
@@ -107,7 +107,7 @@ function ScatterPlot({ xs, ys, regression }: {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }}>
-      <rect width={W} height={H} fill="#080e18" />
+      <rect width={W} height={H} fill="var(--surface-1)" />
       <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="#2a4060" strokeWidth="0.5" />
       <line x1={pad} y1={pad} x2={pad} y2={H - pad} stroke="#2a4060" strokeWidth="0.5" />
 
@@ -159,7 +159,7 @@ export default function StatisticsMode() {
       ]
     : [];
 
-  const bg = "#0a1220", border = "#1a2840", card = "#080e18";
+  const bg = "var(--surface-2)", border = "var(--border)", card = "var(--surface-1)";
 
   useCasioFKeys([
     () => setTab("1var"),
@@ -185,7 +185,7 @@ export default function StatisticsMode() {
               style={{
                 color: tab === t ? "#70a8e0" : "#2a4060",
                 borderBottom: tab === t ? "2px solid #4488c0" : "2px solid transparent",
-                background: tab === t ? "#0a1828" : "transparent",
+                background: tab === t ? "var(--surface-3)" : "transparent",
               }}
             >
               {t === "1var" ? "1-VAR" : "REGR"}
@@ -202,7 +202,7 @@ export default function StatisticsMode() {
                 onChange={(e) => setDataset(e.target.value)}
                 rows={5}
                 className="rounded px-2 py-2 text-[11px] font-mono resize-none"
-                style={{ background: "#060c14", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
+                style={{ background: "var(--input-bg)", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
               />
             </label>
           ) : (
@@ -213,7 +213,7 @@ export default function StatisticsMode() {
                   value={xs}
                   onChange={(e) => setXs(e.target.value)}
                   className="rounded px-2 py-1.5 text-[11px] font-mono"
-                  style={{ background: "#060c14", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
+                  style={{ background: "var(--input-bg)", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
                 />
               </label>
               <label className="flex flex-col gap-1">
@@ -222,7 +222,7 @@ export default function StatisticsMode() {
                   value={ys}
                   onChange={(e) => setYs(e.target.value)}
                   className="rounded px-2 py-1.5 text-[11px] font-mono"
-                  style={{ background: "#060c14", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
+                  style={{ background: "var(--input-bg)", border: `1px solid ${border}`, color: "#80b8e8", outline: "none" }}
                 />
               </label>
             </>
@@ -244,7 +244,7 @@ export default function StatisticsMode() {
                   <div
                     key={String(label)}
                     className="rounded-lg px-2 py-2"
-                    style={{ background: "#080e18", border: `1px solid ${border}` }}
+                    style={{ background: "var(--surface-1)", border: `1px solid ${border}` }}
                   >
                     <div className="text-[9px] font-mono" style={{ color: "#3a5878" }}>{label}</div>
                     <div className="text-[12px] font-mono font-bold mt-0.5" style={{ color: "#80c8ff" }}>
@@ -283,7 +283,7 @@ export default function StatisticsMode() {
               {reg ? (
                 <>
                   {/* Equation */}
-                  <div className="rounded-lg px-3 py-2.5" style={{ background: "#080e18", border: `1px solid ${border}` }}>
+                  <div className="rounded-lg px-3 py-2.5" style={{ background: "var(--surface-1)", border: `1px solid ${border}` }}>
                     <div className="text-[9px]" style={{ color: "#3a5878" }}>EQUATION</div>
                     <div className="text-[13px] font-mono font-bold mt-1" style={{ color: "#44cc88" }}>
                       {reg.equation}
@@ -297,7 +297,7 @@ export default function StatisticsMode() {
                       ["r",             reg.r.toFixed(5)],
                       ["r²",            reg.r2.toFixed(5)],
                     ].map(([label, value]) => (
-                      <div key={String(label)} className="rounded-lg px-2 py-2" style={{ background: "#080e18", border: `1px solid ${border}` }}>
+                      <div key={String(label)} className="rounded-lg px-2 py-2" style={{ background: "var(--surface-1)", border: `1px solid ${border}` }}>
                         <div className="text-[9px] font-mono" style={{ color: "#3a5878" }}>{label}</div>
                         <div className="text-[12px] font-mono font-bold mt-0.5" style={{ color: "#80c8ff" }}>{value}</div>
                       </div>
@@ -330,7 +330,7 @@ export default function StatisticsMode() {
         )}
       </div>
      </div>
-      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[var(--border-strong)] bg-[var(--surface-2)]">
         <button type="button" onClick={() => setTab("1var")} className={`mode-softkey ${tab === "1var" ? "mode-softkey-active" : ""}`}>1-VAR</button>
         <button type="button" onClick={() => setTab("regression")} className={`mode-softkey ${tab === "regression" ? "mode-softkey-active" : ""}`}>REGR</button>
         <button type="button" onClick={() => setTab("1var")} className="mode-softkey">CALC</button>

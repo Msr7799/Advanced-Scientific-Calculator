@@ -50,8 +50,7 @@ export default function CasioScreen({
 
   return (
     <div
-      className="casio-lcd casio-lcd-glare lcd-flicker power-on flex h-full flex-col overflow-hidden rounded-[6px]"
-      style={{ background: "linear-gradient(180deg,#1a3c6a 0%,#0e2340 100%)" }}
+      className="casio-lcd casio-lcd-glare lcd-flicker power-on flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[6px]"
     >
       <div className="status-bar flex shrink-0 select-none items-center justify-between px-2 py-[3px]">
         <div className="flex items-center gap-1">
@@ -62,10 +61,10 @@ export default function CasioScreen({
           )}
         </div>
 
-        <span className="font-mono text-[9px] font-bold tracking-[0.2em] text-[#70a8e0]">{modeTitle}</span>
+        <span className="lcd-accent font-mono text-[9px] font-bold tracking-[0.2em]">{modeTitle}</span>
 
         <div className="flex items-center gap-1">
-          <span className="status-indicator" style={{ background: "rgba(80,120,200,0.25)", color: "#90b8f0" }}>{angleMode}</span>
+          <span className="lcd-angle status-indicator">{angleMode}</span>
           <span className="text-[9px] text-[#506080]">▥</span>
         </div>
       </div>
@@ -94,7 +93,7 @@ export default function CasioScreen({
             onClick={() => onFKey?.(key.key.toLowerCase())}
             disabled={!onFKey}
             className="fkey-label fkey-screen-button truncate border-r border-white/5 px-0.5 py-[4px] text-center font-bold tracking-wider last:border-r-0"
-            style={{ color: key.color ?? "#70a8e0", fontSize: displaySize === "expanded" ? 11 : 10 }}
+            style={{ color: key.color ?? "var(--lcd-accent)", fontSize: displaySize === "expanded" ? 11 : 10 }}
             aria-label={`${key.key}: ${key.label}`}
           >
             {key.label}

@@ -6,6 +6,10 @@ import Image from "next/image";
 import { useCasioFKeys } from "@/lib/keyboard/useCasioFKeys";
 import { AppDialog, dialogButtonClass } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import CodeMirror from "@uiw/react-codemirror";
+import { python } from "@codemirror/lang-python";
+import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 interface PythonFile { name: string; code: string }
 
@@ -15,12 +19,16 @@ const DEFAULT_FILES: PythonFile[] = [
 ];
 
 const STORAGE_KEY = "fx-cg50-python-files";
+const PYTHON_EXTENSIONS = [python()];
+
 export default function PythonMode() {
   const toast = useToast();
+  const { theme } = useTheme();
   const [files, setFiles] = useState<PythonFile[]>(DEFAULT_FILES);
   const [activeIndex, setActiveIndex] = useState(0);
   const [output, setOutput] = useState<string[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "running" | "error">("idle");
+  const [runtimeLabel, setRuntimeLabel] = useState("Python / Pyodide");
   const workerRef = useRef<Worker | null>(null);
   const runIdRef = useRef(0);
   const [savedFiles, setSavedFiles] = useState(JSON.stringify(DEFAULT_FILES));
@@ -142,12 +150,15 @@ export default function PythonMode() {
     setStatus("loading");
     setOutput([]);
     workerRef.current?.terminate();
-    const worker = new Worker("/python-worker.js");
+    const worker = new Worker("/python-worker.js?v=314003", { type: "module" });
     workerRef.current = worker;
     const id = ++runIdRef.current;
-    worker.onmessage = ({ data }: MessageEvent<{ type: string; status?: "loading" | "running"; output?: string[]; message?: string; id: number }>) => {
+    worker.onmessage = ({ data }: MessageEvent<{ type: string; status?: "loading" | "running"; output?: string[]; message?: string; runtimeVersion?: string; pythonVersion?: string; id: number }>) => {
       if (data.id !== runIdRef.current) return;
-      if (data.type === "status" && data.status) setStatus(data.status);
+      if (data.type === "status" && data.status) {
+        setStatus(data.status);
+        if (data.runtimeVersion && data.pythonVersion) setRuntimeLabel(`Python ${data.pythonVersion} / Pyodide ${data.runtimeVersion}`);
+      }
       if (data.type === "result") {
         setOutput(data.output?.length ? data.output : ["Program finished with no output."]);
         setStatus("idle");
@@ -177,8 +188,8 @@ export default function PythonMode() {
   ]);
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-[#07101a] text-[#c8d8e8]">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[#20334a] bg-[#0c1725] px-3">
+    <div className="flex h-full min-w-0 flex-col bg-[var(--surface-1)] text-[#c8d8e8]">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-2)] px-3">
         <Image
           src="/Python-Logo-3.svg"
           alt="Python"
@@ -194,47 +205,61 @@ export default function PythonMode() {
           <button type="button" onClick={saveFiles} className="mode-icon-button" title="Save files"><Save size={15} /></button>
           <button type="button" onClick={requestDeleteFile} className="mode-icon-button mode-icon-danger" title={`Delete ${activeFile.name}`}><Trash2 size={15} /></button>
           <button type="button" onClick={() => setOutput([])} className="mode-icon-button" title="Clear output"><RotateCcw size={15} /></button>
-          <button type="button" onClick={runPython} disabled={status === "loading" || status === "running"} className="inline-flex h-8 items-center gap-2 rounded-md border border-[#257653] bg-[#164832] px-3 text-[10px] font-bold text-[#a8f0ce] disabled:cursor-wait disabled:opacity-60">
+          <button type="button" onClick={runPython} disabled={status === "loading" || status === "running"} className="python-run-button inline-flex h-8 items-center gap-2 rounded-md border px-3 text-[10px] font-bold disabled:cursor-wait disabled:opacity-60">
             <Play size={13} fill="currentColor" /> {status === "loading" ? "LOADING" : status === "running" ? "RUNNING" : "RUN"}
           </button>
           {(status === "loading" || status === "running") && <button type="button" onClick={stopPython} className="mode-icon-button mode-icon-danger" title="Stop Python"><Square size={14} fill="currentColor" /></button>}
         </div>
       </div>
 
-      <div className="flex h-9 shrink-0 items-end gap-1 overflow-x-auto border-b border-[#20334a] bg-[#09131f] px-2 pt-1">
+      <div className="flex h-9 shrink-0 items-end gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface-2)] px-2 pt-1">
         {files.map((file, index) => (
-          <button key={`${file.name}-${index}`} type="button" onClick={() => setActiveIndex(index)} onDoubleClick={() => requestRenameFile(index)} title="Double-click to rename" className={`h-8 min-w-24 border-x border-t px-3 text-left font-mono text-[10px] ${index === activeIndex ? "border-[#31516f] bg-[#102239] text-white" : "border-transparent text-[#5f7992] hover:bg-[#0d1b2c]"}`}>
+          <button key={`${file.name}-${index}`} type="button" onClick={() => setActiveIndex(index)} onDoubleClick={() => requestRenameFile(index)} title="Double-click to rename" className={`h-8 min-w-24 border-x border-t px-3 text-left font-mono text-[10px] ${index === activeIndex ? "border-[#31516f] bg-[var(--surface-3)] text-white" : "border-transparent text-[#5f7992] hover:bg-[var(--surface-hover)]"}`}>
             {file.name}
           </button>
         ))}
       </div>
 
       <div className="python-workspace grid min-h-0 flex-1 grid-cols-[minmax(420px,1fr)_minmax(280px,0.42fr)]">
-        <div className="relative min-h-0 border-r border-[#20334a] bg-[#050b13]">
-          <div className="pointer-events-none absolute bottom-2 right-3 z-10 font-mono text-[9px] text-[#31465b]">UTF-8 · Python 3</div>
-          <textarea value={activeFile.code} onChange={(event) => updateCode(event.target.value)} onKeyDown={(event) => {
-            if (event.key === "Tab") {
-              event.preventDefault();
-              const target = event.currentTarget;
-              const next = `${activeFile.code.slice(0, target.selectionStart)}    ${activeFile.code.slice(target.selectionEnd)}`;
-              const cursor = target.selectionStart + 4;
-              updateCode(next);
-              requestAnimationFrame(() => target.setSelectionRange(cursor, cursor));
-            }
+        <div
+          className="python-editor relative min-h-0 overflow-hidden border-r border-[var(--border)] bg-[var(--input-bg)]"
+          onKeyDownCapture={(event) => {
             if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
               event.preventDefault();
+              event.stopPropagation();
               void runPython();
             }
-          }} className="h-full w-full resize-none bg-transparent p-4 font-mono text-[13px] leading-6 text-[#c6e2f5] outline-none selection:bg-[#24547c]" spellCheck={false} aria-label="Python editor" />
+          }}
+        >
+          <div className="pointer-events-none absolute bottom-2 right-3 z-10 font-mono text-[9px] text-[#31465b]">UTF-8 · Python 3</div>
+          <CodeMirror
+            value={activeFile.code}
+            onChange={updateCode}
+            extensions={PYTHON_EXTENSIONS}
+            theme={theme === "dark" ? githubDark : githubLight}
+            height="100%"
+            basicSetup={{
+              lineNumbers: true,
+              foldGutter: true,
+              highlightActiveLine: true,
+              highlightActiveLineGutter: true,
+              bracketMatching: true,
+              closeBrackets: true,
+              autocompletion: true,
+              indentOnInput: true,
+              syntaxHighlighting: true,
+            }}
+            aria-label="Python editor"
+          />
         </div>
 
-        <div className="relative flex min-h-0 flex-col bg-[#030913]">
-          <div className="flex h-9 shrink-0 items-center border-b border-[#20334a] px-3 text-[9px] font-bold tracking-[0.18em] text-[#59738e]">
+        <div className="relative flex min-h-0 flex-col bg-[var(--input-bg)]">
+          <div className="flex h-9 shrink-0 items-center border-b border-[var(--border)] px-3 text-[9px] font-bold tracking-[0.18em] text-[#59738e]">
             SHELL
             <span className={`ml-auto h-2 w-2 rounded-full ${status === "error" ? "bg-[#dd5f5f]" : status === "idle" ? "bg-[#3fac78]" : "animate-pulse bg-[#e0b64b]"}`} />
           </div>
           <div className="relative z-10 min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-5 text-[#86d9ae]">
-            <div className="mb-2 text-[#426078]">Python 3 / Pyodide 0.27.3</div>
+            <div className="mb-2 text-[#426078]">{runtimeLabel}</div>
             {output.length === 0 ? <span className="text-[#31475d]">&gt;&gt;&gt;</span> : output.map((line, index) => <div key={index} className={status === "error" ? "whitespace-pre-wrap text-[#ec7b7b]" : "whitespace-pre-wrap"}>{line}</div>)}
           </div>
           {output.length === 0 && (
@@ -251,7 +276,7 @@ export default function PythonMode() {
         </div>
       </div>
 
-      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[var(--border-strong)] bg-[var(--surface-2)]">
         <button type="button" onClick={requestCreateFile} className="mode-softkey">NEW</button>
         <button type="button" onClick={saveFiles} className="mode-softkey">SAVE</button>
         <button type="button" onClick={() => setOutput([])} className="mode-softkey">SHELL</button>
@@ -261,12 +286,12 @@ export default function PythonMode() {
       </div>
 
       <AppDialog open={createOpen} onOpenChange={setCreateOpen} title="Create Python file" description="Choose a unique name for the new file in this calculator workspace." icon={<FilePlus2 size={17} />} footer={<><button type="button" onClick={() => setCreateOpen(false)} className={`${dialogButtonClass} border-[#30455a] text-[#91a8bd] hover:bg-[#122235]`}>Cancel</button><button type="button" onClick={confirmCreateFile} disabled={!createName.trim()} className={`${dialogButtonClass} border-[#2673a5] bg-[#155d88] text-white hover:bg-[#1a70a2]`}>Create file</button></>}>
-        <label className="block text-[10px] font-bold tracking-[0.12em] text-[#6d879f]">FILE NAME<input value={createName} onChange={(event) => setCreateName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") confirmCreateFile(); }} className="mt-2 h-10 w-full rounded-md border border-[#30475e] bg-[#050c14] px-3 font-mono text-[12px] text-white outline-none focus:border-[#4b91c5]" placeholder="program.py" /></label>
-        <div className="mt-3 rounded-md border border-[#1e3448] bg-[#08121d] px-3 py-2 font-mono text-[10px] text-[#5f7c96]">Python workspace / {createName.trim() || "file.py"}</div>
+        <label className="block text-[10px] font-bold tracking-[0.12em] text-[#6d879f]">FILE NAME<input value={createName} onChange={(event) => setCreateName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") confirmCreateFile(); }} className="mt-2 h-10 w-full rounded-md border border-[#30475e] bg-[var(--input-bg)] px-3 font-mono text-[12px] text-white outline-none focus:border-[#4b91c5]" placeholder="program.py" /></label>
+        <div className="mt-3 rounded-md border border-[#1e3448] bg-[var(--surface-2)] px-3 py-2 font-mono text-[10px] text-[#5f7c96]">Python workspace / {createName.trim() || "file.py"}</div>
       </AppDialog>
 
       <AppDialog open={renameIndex !== null} onOpenChange={(open) => { if (!open) setRenameIndex(null); }} title="Rename Python file" description={renameIndex === null ? "" : `Rename ${files[renameIndex]?.name} without changing its contents.`} icon={<FileCode2 size={17} />} footer={<><button type="button" onClick={() => setRenameIndex(null)} className={`${dialogButtonClass} border-[#30455a] text-[#91a8bd] hover:bg-[#122235]`}>Cancel</button><button type="button" onClick={confirmRenameFile} disabled={!renameName.trim()} className={`${dialogButtonClass} border-[#2673a5] bg-[#155d88] text-white hover:bg-[#1a70a2]`}>Rename file</button></>}>
-        <label className="block text-[10px] font-bold tracking-[0.12em] text-[#6d879f]">NEW FILE NAME<input value={renameName} onChange={(event) => setRenameName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") confirmRenameFile(); }} className="mt-2 h-10 w-full rounded-md border border-[#30475e] bg-[#050c14] px-3 font-mono text-[12px] text-white outline-none focus:border-[#4b91c5]" /></label>
+        <label className="block text-[10px] font-bold tracking-[0.12em] text-[#6d879f]">NEW FILE NAME<input value={renameName} onChange={(event) => setRenameName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") confirmRenameFile(); }} className="mt-2 h-10 w-full rounded-md border border-[#30475e] bg-[var(--input-bg)] px-3 font-mono text-[12px] text-white outline-none focus:border-[#4b91c5]" /></label>
       </AppDialog>
 
       <AppDialog open={deleteIndex !== null} onOpenChange={(open) => { if (!open) setDeleteIndex(null); }} title={files.length === 1 ? "Reset the Python workspace?" : `Delete ${deleteTarget?.name ?? "file"}?`} description={files.length === 1 ? "The editor must keep one file, so this operation behaves differently." : "This removes the selected file and its unsaved contents from this browser."} icon={<Trash2 size={17} />} danger footer={<><button type="button" onClick={() => setDeleteIndex(null)} className={`${dialogButtonClass} border-[#30455a] text-[#91a8bd] hover:bg-[#122235]`}>Cancel</button><button type="button" onClick={confirmDeleteFile} className={`${dialogButtonClass} border-[#7a343d] bg-[#8e2632] text-white hover:bg-[#a62d3a]`}>{files.length === 1 ? "Clear and keep main.py" : `Delete ${deleteTarget?.name ?? "file"}`}</button></>}>

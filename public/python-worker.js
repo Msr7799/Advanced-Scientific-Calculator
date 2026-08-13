@@ -1,14 +1,35 @@
-/* global importScripts, loadPyodide */
+import { loadPyodide } from "./pyodide/pyodide.mjs";
 
-const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.3/full/";
+const PYODIDE_URL = new URL("./pyodide/", self.location.href).href;
 let runtimePromise;
 
 function getRuntime() {
   if (!runtimePromise) {
-    importScripts(`${PYODIDE_URL}pyodide.js`);
-    runtimePromise = loadPyodide({ indexURL: PYODIDE_URL });
+    runtimePromise = loadPyodide({
+      indexURL: PYODIDE_URL,
+      packageBaseUrl: "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/",
+    }).catch((error) => {
+      runtimePromise = undefined;
+      throw error;
+    });
   }
   return runtimePromise;
+}
+
+function formatError(error) {
+  if (typeof error === "string") return error;
+  if (error && typeof error.message === "string") return error.message;
+  if (error && typeof error.toString === "function") {
+    const text = error.toString();
+    if (text && text !== "[object Object]") return text;
+  }
+  try {
+    const serialized = JSON.stringify(error, Object.getOwnPropertyNames(error ?? {}));
+    if (serialized && serialized !== "{}") return serialized;
+  } catch {
+    // Fall through to a useful generic message.
+  }
+  return "Python runtime failed to initialize.";
 }
 
 self.onmessage = async ({ data }) => {
@@ -20,13 +41,19 @@ self.onmessage = async ({ data }) => {
     runtime.setStdout({ batched: (text) => output.push(text) });
     runtime.setStderr({ batched: (text) => output.push(text) });
     await runtime.loadPackagesFromImports(data.source);
-    self.postMessage({ type: "status", status: "running", id: data.id });
+    self.postMessage({
+      type: "status",
+      status: "running",
+      runtimeVersion: runtime.version,
+      pythonVersion: runtime.runPython("import sys; '.'.join(map(str, sys.version_info[:3]))"),
+      id: data.id,
+    });
     await runtime.runPythonAsync(data.source, { filename: data.filename });
     self.postMessage({ type: "result", output, id: data.id });
   } catch (error) {
     self.postMessage({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: formatError(error),
       output,
       id: data.id,
     });

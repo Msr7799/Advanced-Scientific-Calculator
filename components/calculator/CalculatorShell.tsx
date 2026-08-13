@@ -246,14 +246,14 @@ function CalcKey({
     >
       {/* Shift label — yellow, top-left */}
       {btn.shiftLabel && (
-        <span className="absolute -top-[10px] left-0 w-full text-center text-[8px] font-semibold leading-none truncate px-0.5"
+        <span className="casio-shift-label absolute -top-[10px] left-0 w-full text-center text-[8px] font-semibold leading-none truncate px-0.5"
           style={{ color: "#d4aa2a", letterSpacing: "0.02em" }}>
           {btn.shiftLabel}
         </span>
       )}
       {/* Alpha label — red, top-right */}
       {btn.alphaLabel && btn.alphaLabel !== " " && (
-        <span className="absolute -top-[10px] right-0.5 text-[8px] font-semibold leading-none"
+        <span className="casio-alpha-label absolute -top-[10px] right-0.5 text-[8px] font-semibold leading-none"
           style={{ color: "#e04040", letterSpacing: "0.02em" }}>
           {btn.alphaLabel}
         </span>
@@ -329,7 +329,7 @@ function FKeyBar({ onFKey }: { onFKey: (key: string) => void }) {
           {/* Function name above button */}
           {fk.shiftLabel && (
             <span
-              className="text-[7px] font-semibold tracking-wider truncate w-full text-center leading-none"
+              className="casio-shift-label text-[7px] font-semibold tracking-wider truncate w-full text-center leading-none"
               style={{ color: "#d4aa2a", letterSpacing: "0.03em" }}
             >
               {fk.shiftLabel}
@@ -900,13 +900,10 @@ export default function CalculatorShell() {
 
       {/* ── LCD Frame ────────────────────────────────── */}
       <div
-        className="shrink-0 mb-3"
+        className="casio-lcd-frame shrink-0 mb-3"
         style={{
           borderRadius: 8,
           padding: "6px",
-          background: "linear-gradient(175deg, #1e2838 0%, #141c28 100%)",
-          border: "2px solid #0a1018",
-          boxShadow: "inset 0 2px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
         }}
       >
         {/* LCD screen — fills remaining space */}

@@ -71,8 +71,8 @@ export default function VectorMode() {
   useCasioFKeys(OPERATIONS.map((item) => () => setOperation(item.id)));
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-[#07101c] text-[#c8d8e8]">
-      <div className="flex h-11 shrink-0 items-center border-b border-[#20324a] bg-[#0c1727] px-3">
+    <div className="flex h-full min-w-0 flex-col bg-[var(--surface-1)] text-[#c8d8e8]">
+      <div className="flex h-11 shrink-0 items-center border-b border-[var(--border)] bg-[var(--surface-2)] px-3">
         <div className="text-[11px] font-bold tracking-[0.2em] text-[#e2b743]">VECTOR MEMORY</div>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" onClick={() => setSelected(selected === "A" ? "B" : "A")} className="mode-icon-button" title="Switch vector">
@@ -85,7 +85,7 @@ export default function VectorMode() {
       </div>
 
       <div className="mode-responsive-grid grid min-h-0 flex-1 grid-cols-[minmax(300px,0.9fr)_minmax(360px,1.1fr)]">
-        <div className="min-h-0 overflow-y-auto border-r border-[#20324a] p-4">
+        <div className="min-h-0 overflow-y-auto border-r border-[var(--border)] p-4">
           <div className="mb-3 flex items-center gap-2">
             {(["A", "B"] as VectorName[]).map((name) => (
               <button key={name} type="button" onClick={() => setSelected(name)} className={`mode-tab ${selected === name ? "mode-tab-active" : ""}`}>
@@ -101,14 +101,14 @@ export default function VectorMode() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-md border border-[#2a405e] bg-[#091321]">
-            <div className="grid grid-cols-[56px_1fr] border-b border-[#2a405e] bg-[#111e31] text-[10px] font-bold text-[#6f8eaf]">
+          <div className="overflow-hidden rounded-md border border-[#2a405e] bg-[var(--surface-2)]">
+            <div className="grid grid-cols-[56px_1fr] border-b border-[#2a405e] bg-[var(--surface-3)] text-[10px] font-bold text-[#6f8eaf]">
               <div className="px-3 py-2">CELL</div><div className="px-3 py-2">VALUE</div>
             </div>
             {vectors[selected].map((value, index) => (
-              <label key={index} className="grid grid-cols-[56px_1fr] border-b border-[#172a40] last:border-b-0">
-                <span className="flex items-center justify-center border-r border-[#172a40] font-mono text-[12px] text-[#e2b743]">{index + 1}</span>
-                <input type="number" value={value} onChange={(event) => updateElement(selected, index, event.target.value)} className="h-11 bg-transparent px-3 font-mono text-[14px] text-white outline-none focus:bg-[#102139]" aria-label={`Vct ${selected} element ${index + 1}`} />
+              <label key={index} className="grid grid-cols-[56px_1fr] border-b border-[var(--border)] last:border-b-0">
+                <span className="flex items-center justify-center border-r border-[var(--border)] font-mono text-[12px] text-[#e2b743]">{index + 1}</span>
+                <input type="number" value={value} onChange={(event) => updateElement(selected, index, event.target.value)} className="h-11 bg-transparent px-3 font-mono text-[14px] text-white outline-none focus:bg-[var(--surface-hover)]" aria-label={`Vct ${selected} element ${index + 1}`} />
               </label>
             ))}
           </div>
@@ -125,27 +125,27 @@ export default function VectorMode() {
 
         <div className="flex min-h-0 flex-col p-4">
           <div className="mb-2 text-[10px] font-bold tracking-[0.2em] text-[#557392]">RUN-MATRIX</div>
-          <div className="min-h-32 rounded-md border border-[#28415e] bg-[#020817] p-4 font-mono">
+          <div className="min-h-32 rounded-md border border-[var(--border-strong)] bg-[var(--input-bg)] p-4 font-mono">
             <div className="text-[13px] text-[#7fb8e8]">{result.expression}</div>
             <div className={`mt-6 break-words text-right text-[22px] font-bold ${result.error ? "text-[#ee6b6b]" : "text-white"}`}>{result.value}</div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
             {(["A", "B"] as VectorName[]).map((name) => (
-              <div key={name} className="rounded-md border border-[#1b3048] bg-[#0b1625] px-3 py-2 font-mono">
+              <div key={name} className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-mono">
                 <div className="text-[9px] text-[#54708d]">Vct {name} ({vectors[name].length}×1)</div>
                 <div className="mt-1 text-[#bdd5eb]">[ {vectors[name].join("  ")} ]</div>
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setVectors(({ A, B }) => ({ A: B, B: A }))} className="mt-auto inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#31557b] bg-[#142a45] text-[11px] font-bold text-[#9ccfff]">
+          <button type="button" onClick={() => setVectors(({ A, B }) => ({ A: B, B: A }))} className="mt-auto inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#31557b] bg-[var(--accent-soft)] text-[11px] font-bold text-[#9ccfff]">
             <ArrowLeftRight size={14} /> Swap Vct A and Vct B
           </button>
         </div>
       </div>
 
-      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[#29425f] bg-[#0b1727]">
+      <div className="grid h-9 shrink-0 grid-cols-6 border-t border-[var(--border-strong)] bg-[var(--surface-2)]">
         {OPERATIONS.map((item) => (
-          <button key={item.id} type="button" onClick={() => setOperation(item.id)} className={`border-r border-[#243a55] font-mono text-[10px] font-bold last:border-r-0 ${operation === item.id ? "bg-[#285d91] text-white" : "text-[#79a9d4] hover:bg-[#132943]"}`}>
+          <button key={item.id} type="button" onClick={() => setOperation(item.id)} className={`border-r border-[#243a55] font-mono text-[10px] font-bold last:border-r-0 ${operation === item.id ? "bg-[#285d91] text-white" : "text-[#79a9d4] hover:bg-[var(--surface-hover)]"}`}>
             {item.casio}
           </button>
         ))}

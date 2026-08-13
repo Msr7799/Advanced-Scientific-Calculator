@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useCasioStore } from "@/store/calculatorStore";
 import type { CasioMode } from "@/types/calculator";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 // ─── Menu app definitions ────────────────────────────────────────────────────
 interface MenuApp {
@@ -29,20 +30,23 @@ const MENU_APPS: MenuApp[] = [
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface CasioMenuScreenProps {
   onSelect: (mode: CasioMode) => void;
+  displaySize?: "calculator" | "expanded";
+  keyboardNavigation?: boolean;
 }
 
 // ─── Menu Screen ─────────────────────────────────────────────────────────────
-export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
-  const { currentMode } = useCasioStore();
-  const [selectedIdx, setSelectedIdx] = useState(0);
+export default function CasioMenuScreen({ onSelect, displaySize = "calculator", keyboardNavigation = true }: CasioMenuScreenProps) {
+  const { currentMode, menuSelectedIndex: selectedIdx, setMenuSelectedIndex: setSelectedIdx } = useCasioStore();
+  const { theme } = useTheme();
 
   // Keyboard navigation in menu
   useEffect(() => {
+    if (!keyboardNavigation) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setSelectedIdx((i) => (i + 1) % MENU_APPS.length);
-      if (e.key === "ArrowLeft")  setSelectedIdx((i) => (i - 1 + MENU_APPS.length) % MENU_APPS.length);
-      if (e.key === "ArrowDown")  setSelectedIdx((i) => (i + 4) % MENU_APPS.length);
-      if (e.key === "ArrowUp")    setSelectedIdx((i) => (i - 4 + MENU_APPS.length) % MENU_APPS.length);
+      if (e.key === "ArrowRight") setSelectedIdx((selectedIdx + 1) % MENU_APPS.length);
+      if (e.key === "ArrowLeft")  setSelectedIdx((selectedIdx - 1 + MENU_APPS.length) % MENU_APPS.length);
+      if (e.key === "ArrowDown")  setSelectedIdx((selectedIdx + 4) % MENU_APPS.length);
+      if (e.key === "ArrowUp")    setSelectedIdx((selectedIdx - 4 + MENU_APPS.length) % MENU_APPS.length);
       if (e.key === "Enter") { onSelect(MENU_APPS[selectedIdx].id); return; }
 
       // Number shortcuts
@@ -53,22 +57,22 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedIdx, onSelect]);
+  }, [keyboardNavigation, selectedIdx, onSelect, setSelectedIdx]);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "linear-gradient(180deg, #0e2040 0%, #0a1830 100%)" }}>
+    <div className={`casio-menu-screen casio-lcd casio-lcd-glare lcd-flicker power-on flex h-full w-full flex-col overflow-hidden rounded-[6px] ${displaySize === "expanded" ? "casio-menu-expanded" : ""}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-[5px] border-b border-white/5">
-        <span className="text-[9px] font-mono font-bold tracking-[0.25em] text-[#4488cc]">
+      <div className={`flex items-center justify-between border-b border-white/5 ${displaySize === "expanded" ? "px-5 py-3" : "px-3 py-[5px]"}`}>
+        <span className={`lcd-accent font-mono font-bold tracking-[0.25em] ${displaySize === "expanded" ? "text-[13px]" : "text-[9px]"}`}>
           CASIO fx-CG50
         </span>
-        <span className="text-[9px] font-mono text-[#304860]">
+        <span className={`lcd-muted font-mono ${displaySize === "expanded" ? "text-[12px]" : "text-[9px]"}`}>
           MAIN MENU
         </span>
       </div>
 
       {/* App grid — 4 columns */}
-      <div className="flex-1 grid grid-cols-4 gap-[6px] p-2 content-start">
+      <div className={`casio-menu-grid grid flex-1 grid-cols-4 content-start ${displaySize === "expanded" ? "gap-3 p-5" : "gap-[6px] p-2"}`}>
         {MENU_APPS.map((app, idx) => {
           const isActive = idx === selectedIdx;
           const isCurrentMode = currentMode === app.id;
@@ -78,11 +82,11 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
               type="button"
               onClick={() => onSelect(app.id)}
               onMouseEnter={() => setSelectedIdx(idx)}
-              className="menu-icon"
+              className={`menu-icon ${displaySize === "expanded" ? "min-h-[96px]" : ""}`}
               style={{
                 borderColor: isActive ? app.color + "aa" : undefined,
                 background: isActive
-                  ? `${app.color}22`
+                  ? `${app.color}${theme === "light" ? "38" : "22"}`
                   : isCurrentMode
                   ? `${app.color}10`
                   : undefined,
@@ -94,7 +98,7 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
             >
               {/* Shortcut number */}
               <span
-                className="absolute top-1 left-1.5 text-[8px] font-bold"
+                className={`absolute top-1 left-1.5 font-bold ${displaySize === "expanded" ? "text-[11px]" : "text-[8px]"}`}
                 style={{ color: app.color + "99" }}
               >
                 {app.shortcut}
@@ -106,21 +110,25 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
                   src="/Python-Logo.svg"
                   alt=""
                   aria-hidden="true"
-                  width={26}
-                  height={26}
+                  width={displaySize === "expanded" ? 42 : 26}
+                  height={displaySize === "expanded" ? 42 : 26}
                   unoptimized
-                  className="h-[26px] w-[26px] object-contain"
+                  className={`${displaySize === "expanded" ? "h-[42px] w-[42px]" : "h-[26px] w-[26px]"} object-contain`}
                   style={{
-                    filter: isActive ? "brightness(1.15)" : "brightness(0.82)",
+                    filter: theme === "light"
+                      ? isActive ? "saturate(1.3) brightness(0.82)" : "saturate(1.2) brightness(0.7)"
+                      : isActive ? "brightness(1.15)" : "brightness(0.82)",
                   }}
                 />
               ) : (
                 <span
-                  className="text-[18px] leading-none"
+                  className={`${displaySize === "expanded" ? "text-[30px]" : "text-[18px]"} leading-none`}
                   style={{
                     color: isActive ? app.color : app.color + "bb",
                     textShadow: isActive ? `0 0 8px ${app.color}88` : "none",
-                    filter: isActive ? "brightness(1.2)" : "brightness(0.85)",
+                    filter: theme === "light"
+                      ? isActive ? "saturate(1.3) brightness(0.7)" : "saturate(1.2) brightness(0.62)"
+                      : isActive ? "brightness(1.2)" : "brightness(0.85)",
                   }}
                 >
                   {app.icon}
@@ -129,8 +137,8 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
 
               {/* Label */}
               <span
-                className="text-[8px] font-bold tracking-wide leading-none text-center"
-                style={{ color: isActive ? app.color : "#6888a8" }}
+                className={`${displaySize === "expanded" ? "text-[12px]" : "text-[8px]"} text-center font-bold leading-none tracking-wide`}
+                style={{ color: isActive ? app.color : "var(--lcd-muted)" }}
               >
                 {app.label}
               </span>
@@ -148,11 +156,11 @@ export default function CasioMenuScreen({ onSelect }: CasioMenuScreenProps) {
       </div>
 
       {/* Bottom hint */}
-      <div className="px-3 py-[4px] border-t border-white/5 flex items-center justify-between">
-        <span className="text-[8px] text-[#304860] font-mono">
+      <div className={`flex items-center justify-between border-t border-white/5 ${displaySize === "expanded" ? "px-5 py-3" : "px-3 py-[4px]"}`}>
+        <span className={`lcd-muted font-mono ${displaySize === "expanded" ? "text-[10px]" : "text-[8px]"}`}>
           ◄►▲▼ SELECT  EXE/ENTER
         </span>
-        <span className="text-[8px] text-[#304860] font-mono">
+        <span className={`lcd-muted font-mono ${displaySize === "expanded" ? "text-[10px]" : "text-[8px]"}`}>
           [1-8] SHORTCUT
         </span>
       </div>
